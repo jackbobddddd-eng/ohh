@@ -87,7 +87,7 @@
                 </div>
                 <button id="main-cta" onclick="startAI()">START AI</button>
                 <input type="text" id="join-id" placeholder="Paste Peer ID" style="margin-top:15px">
-                <button class="mode-btn" style="width: 100%;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
+                <button class="mode-btn" id="join-btn" style="width: 100%;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
                 <div class="id-text" onclick="copyId()">MY PERMANENT ID: <span id="my-id" style="color:var(--pink)">booting...</span></div>
             </div>
         </div>
@@ -123,35 +123,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
     const aiSettings = {'EASY': { reaction: 0.04, margin: 130 }, 'MEDIUM': { reaction: 0.13, margin: 60 }, 'HARD': { reaction: 0.38, margin: 0 }};
 
-    // --- INSTANT ID BOOT ---
-    function fastBootPeer() {
-        const savedId = localStorage.getItem(ID_KEY);
-        // Pre-display if we have it
-        if(savedId) document.getElementById('my-id').innerText = savedId;
-        
-        peer = savedId ? new Peer(savedId) : new Peer();
-        
-        peer.on('open', id => {
-            localStorage.setItem(ID_KEY, id);
-            document.getElementById('my-id').innerText = id;
-        });
+    // --- Boot Networking Early ---
+    const savedId = localStorage.getItem(ID_KEY);
+    peer = savedId ? new Peer(savedId) : new Peer();
+    peer.on('open', id => {
+        localStorage.setItem(ID_KEY, id);
+        document.getElementById('my-id').innerText = id;
+    });
 
-        peer.on('connection', c => {
-            conn = c; isHost = true; mode = 'MULTIPLAYER';
-            setupPeer();
-            conn.on('open', () => { 
-                conn.send({ type: 'START', hostName: playerName });
-                startGame(); 
-            });
+    peer.on('connection', c => {
+        conn = c; isHost = true; mode = 'MULTIPLAYER';
+        setupPeer();
+        conn.on('open', () => { 
+            conn.send({ type: 'START', hostName: playerName });
+            startGame(); 
         });
-
-        peer.on('error', (err) => {
-            if(err.type === 'unavailable-id') {
-                localStorage.removeItem(ID_KEY); // Reset if ID is taken/broken
-                location.reload();
-            }
-        });
-    }
+    });
 
     function saveFriend(name, id) {
         let friends = JSON.parse(localStorage.getItem(FRIENDS_KEY) || '{}');
@@ -176,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
             playerName = val.toUpperCase(); 
             document.getElementById('overlay-name').classList.add('hidden'); 
             document.getElementById('overlay-start').classList.remove('hidden'); 
-            fastBootPeer(); // Trigger connection immediately after name
             renderFriends();
         }
     };
@@ -184,8 +170,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.connectToPeer = () => {
         const id = document.getElementById('join-id').value.trim();
         if(!id) return;
-        conn = peer.connect(id); isHost = false; mode = 'MULTIPLAYER';
-        setupPeer();
+        
+        conn = peer.connect(id); 
+        isHost = false; 
+        mode = 'MULTIPLAYER';
+        
+        setupPeer(); 
         conn.on('open', () => { 
             conn.send({ type: 'JOIN', guestName: playerName }); 
             startGame(); 
@@ -199,7 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.type === 'WIN') endMatch(data.winner);
             if (data.type === 'REMATCH_REQ') startGame();
             if (isHost) p2.targetY = data.p2Y;
-            else { p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY; p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; }
+            else { 
+                p1.y = data.p1Y; p2.y = data.p2Y; 
+                ball.x = data.ballX; ball.y = data.ballY; 
+                p1.score = data.s1; p2.score = data.s2; 
+                speedMult = data.speed; 
+            }
         });
     }
 
