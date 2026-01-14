@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>NEON PONG // MOBILE STABLE</title>
+    <title>NEON PONG // CROSS-PLATFORM</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --neon: #00f2ff; --pink: #ff007b; }
@@ -13,34 +13,35 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             height: 100%; width: 100%; margin: 0; overflow: hidden; position: fixed;
         }
+        
+        /* CONTAINER FIX: Keeps game at 16:10 ratio so iPad sees everything */
         #game-container { 
-            position: relative; width: 98vw; height: 85vh; max-width: 1200px; max-height: 750px; 
-            background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #333;
+            position: relative; 
+            background: #000; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            border: 1px solid #333;
             box-shadow: 0 0 20px rgba(0,0,0,1);
+            /* Dimensions are handled by JS now for perfect fit */
         }
+
         canvas { width: 100%; height: 100%; display: block; background: #000; }
+        
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); display: flex; align-items: center; justify-content: center; z-index: 10; }
         .menu-card { padding: 30px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 85%; max-width: 400px; background: #0a0a0a; }
         h1 { font-size: 2.2rem; font-weight: 200; letter-spacing: 8px; margin-bottom: 20px; text-shadow: 0 0 15px var(--neon); color: #fff; }
+        
         .mode-select { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 15px 0; }
         .mode-btn { background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 11px; }
         .mode-btn.active { border-color: var(--neon); background: rgba(0, 242, 255, 0.1); box-shadow: 0 0 10px var(--neon); }
+        
         input { background: #111; border: 1px solid #444; color: white; padding: 12px; width: 85%; border-radius: 8px; margin-bottom: 10px; font-size: 16px; text-align: center; }
         #main-cta { background: white; border: none; color: black; padding: 14px 30px; font-weight: 600; cursor: pointer; border-radius: 8px; width: 95%; margin-top: 10px; }
         
-        /* SCROLLABLE LEADERBOARD STYLES */
         #leaderboard { 
-            margin: 15px 0; 
-            font-size: 13px; 
-            color: #888; 
-            text-align: left; 
-            background: #111; 
-            padding: 12px; 
-            border-radius: 10px; 
-            border: 1px solid #222; 
-            height: 180px; 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
+            margin: 15px 0; font-size: 13px; color: #888; text-align: left; background: #111; 
+            padding: 12px; border-radius: 10px; border: 1px solid #222; height: 180px; 
+            overflow-y: auto; -webkit-overflow-scrolling: touch; 
         }
         #leaderboard::-webkit-scrollbar { width: 4px; }
         #leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
@@ -98,9 +99,16 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById("pong");
+    const container = document.getElementById("game-container");
     const ctx = canvas.getContext("2d");
-    canvas.width = 2000; canvas.height = 1250; 
-    const PADDLE_H = 200; // Define paddle height for math
+    
+    // Internal Game Resolution (Fixed)
+    canvas.width = 2000; 
+    canvas.height = 1250; 
+    
+    const PADDLE_H = 200; 
+    const PADDLE_W = 20;
+    const BALL_R = 20;
 
     let gameState = 'LOBBY', mode = 'AI', isHost = true, conn = null;
     let speedMult = 1, shake = 0;
@@ -114,6 +122,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const p1 = { y: 525, score: 0, targetY: 525 };
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 15, dy: 15 };
+
+    // --- FIX 1: FORCE ASPECT RATIO ON ALL DEVICES (iPad fix) ---
+    function resizeGame() {
+        const aspect = 2000 / 1250; // 1.6 ratio
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
+        const padding = 20; // safe area
+
+        let newW = winW - padding;
+        let newH = newW / aspect;
+
+        if (newH > winH - padding) {
+            newH = winH - padding;
+            newW = newH * aspect;
+        }
+
+        container.style.width = `${newW}px`;
+        container.style.height = `${newH}px`;
+    }
+    window.addEventListener('resize', resizeGame);
+    resizeGame(); // Trigger immediately
+    // -----------------------------------------------------------
 
     class Particle {
         constructor(x, y, color) {
@@ -169,150 +199,4 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderLB() {
         const list = document.getElementById('lb-list');
         let s = JSON.parse(localStorage.getItem('pong_v12') || '[]');
-        list.innerHTML = s.length ? s.map((x, i) => `<div class="lb-entry"><span>${i+1}. ${x.pair}</span><span style="color:var(--neon)">${x.v} Hits</span></div>`).join('') : "No records yet.";
-    }
-    renderLB();
-
-    window.addEventListener("keydown", e => keys[e.code] = true);
-    window.addEventListener("keyup", e => keys[e.code] = false);
-
-    const handleInput = (clientInY) => {
-        const rect = canvas.getBoundingClientRect();
-        const scaleY = canvas.height / rect.height;
-        const relativeY = (clientInY - rect.top) * scaleY - 100;
-        if(isHost) p1.targetY = relativeY; else p2.targetY = relativeY;
-    };
-
-    canvas.addEventListener("mousemove", e => handleInput(e.clientY));
-    canvas.addEventListener("touchmove", e => {
-        handleInput(e.touches[0].clientY);
-        e.preventDefault();
-    }, { passive: false });
-
-    const peer = new Peer();
-    peer.on('open', id => document.getElementById('my-id').innerText = id);
-    peer.on('connection', c => { conn = c; isHost = true; mode = 'MULTIPLAYER'; setupPeer(); });
-
-    window.connectToPeer = () => {
-        const id = document.getElementById('join-id').value;
-        if(!id) return;
-        conn = peer.connect(id, { reliable: true }); isHost = false; mode = 'MULTIPLAYER';
-        setupPeer();
-    };
-
-    function setupPeer() {
-        conn.on('open', () => { if(!isHost) conn.send({ type: 'NAME', name: playerName }); });
-        conn.on('data', data => {
-            dataReceived = true;
-            if (data.type === 'NAME') {
-                opponentName = data.name;
-                if(isHost) { conn.send({ type: 'START', name: playerName }); startGame(); }
-            }
-            if (data.type === 'START') { opponentName = data.name; startGame(); }
-            if (data.type === 'RESET_REBOOT') { p1.score = 0; p2.score = 0; maxMatchVolley = 0; startGame(); }
-            if (data.type === 'WIN') endMatch(data.winner);
-            
-            if (isHost) { p2.targetY = data.p2Y; } 
-            else {
-                p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY;
-                p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; 
-                currentVolley = data.vol; maxMatchVolley = data.maxVol;
-                if(data.hit) burst(data.hit.x, data.hit.y, data.hit.c);
-            }
-        });
-    }
-
-    function burst(x, y, c) { for(let i=0; i<15; i++) particles.push(new Particle(x, y, c)); }
-
-    function update() {
-        if (keys['KeyW'] || keys['ArrowUp']) { if(isHost) p1.targetY -= 40; else p2.targetY -= 40; }
-        if (keys['KeyS'] || keys['ArrowDown']) { if(isHost) p1.targetY += 40; else p2.targetY += 40; }
-        
-        p1.y += (p1.targetY - p1.y) * 0.25;
-        // BOUNDARY CHECK P1
-        if(p1.y < 0) p1.y = 0;
-        if(p1.y > canvas.height - PADDLE_H) p1.y = canvas.height - PADDLE_H;
-
-        if (mode === 'AI') {
-            let s = { 'EASY': 0.035, 'MEDIUM': 0.1, 'HARD': 0.3 }[aiLevel];
-            p2.y += (ball.y - 100 - p2.y) * s;
-        } else { 
-            p2.y += (p2.targetY - p2.y) * 0.25; 
-        }
-        
-        // BOUNDARY CHECK P2
-        if(p2.y < 0) p2.y = 0;
-        if(p2.y > canvas.height - PADDLE_H) p2.y = canvas.height - PADDLE_H;
-
-        if (isHost || mode === 'AI') {
-            speedMult += 0.0015;
-            ball.x += ball.dx * speedMult; ball.y += ball.dy * speedMult;
-            if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; burst(ball.x, ball.y, 'white'); shake = 4; }
-            
-            // Hit logic
-            if (ball.x < 80 && ball.y > p1.y && ball.y < p1.y + PADDLE_H) { 
-                ball.dx = Math.abs(ball.dx); 
-                currentVolley++; 
-                if(currentVolley > maxMatchVolley) maxMatchVolley = currentVolley; 
-                burst(60, ball.y, '#00f2ff'); 
-            }
-            if (ball.x > 1920 && ball.y > p2.y && ball.y < p2.y + PADDLE_H) { 
-                ball.dx = -Math.abs(ball.dx); 
-                currentVolley++; 
-                if(currentVolley > maxMatchVolley) maxMatchVolley = currentVolley; 
-                burst(1940, ball.y, '#ff007b'); 
-            }
-            
-            if (ball.x < 0) { p2.score++; resetBall(); }
-            if (ball.x > canvas.width) { p1.score++; resetBall(); }
-            
-            if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) { 
-                let w = p1.score >= WIN_SCORE ? playerName : opponentName;
-                updateLB(maxMatchVolley); 
-                if(conn) conn.send({ type: 'WIN', winner: w }); 
-                endMatch(w); 
-            }
-            if (conn) conn.send({ p1Y: p1.y, p2Y: p2.y, ballX: ball.x, ballY: ball.y, s1: p1.score, s2: p2.score, speed: speedMult, vol: currentVolley, maxVol: maxMatchVolley });
-        } else if (conn) { conn.send({ p2Y: p2.targetY }); }
-        particles.forEach((p, i) => { p.update(); if(p.alpha <= 0) particles.splice(i, 1); });
-    }
-
-    function resetBall() { ball.x = 1000; ball.y = 625; ball.dx *= -1; speedMult = 1; currentVolley = 0; }
-
-    function endMatch(w) {
-        gameState = 'END';
-        document.getElementById('overlay-win').classList.remove('hidden');
-        document.getElementById('win-message').innerText = w.toUpperCase() + " WINS";
-        document.getElementById('win-versus').innerText = `${playerName.toUpperCase()} VS ${opponentName.toUpperCase()}`;
-        document.getElementById('win-detail').innerText = `Best Consecutive Rally: ${maxMatchVolley}`;
-    }
-
-    function draw() {
-        ctx.fillStyle = "black"; ctx.fillRect(0,0, canvas.width, canvas.height);
-        ctx.save(); if (shake > 1) { ctx.translate(Math.random()*shake, Math.random()*shake); shake *= 0.9; }
-        ctx.font = "bold 40px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.textAlign = "center";
-        ctx.fillText(`${playerName} VS ${opponentName}`, 1000, 80);
-        
-        ctx.font = "30px sans-serif"; ctx.fillText(`BEST RALLY: ${maxMatchVolley}`, 1000, 130);
-        
-        ctx.shadowBlur = 20; ctx.fillStyle = "white";
-        ctx.shadowColor = "#00f2ff"; ctx.fillRect(40, p1.y, 20, PADDLE_H);
-        ctx.shadowColor = "#ff007b"; ctx.fillRect(1940, p2.y, 20, PADDLE_H);
-        ctx.shadowColor = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 20, 0, Math.PI*2); ctx.fill();
-        particles.forEach(p => p.draw());
-        ctx.font = "200px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.05)";
-        ctx.fillText(p1.score, 600, 450); ctx.fillText(p2.score, 1400, 450);
-        ctx.restore();
-    }
-
-    function gameLoop() {
-        if(gameState !== 'PLAYING') return;
-        if(isHost || mode === 'AI' || dataReceived) { update(); draw(); }
-        requestAnimationFrame(gameLoop);
-    }
-
-    window.copyId = () => { navigator.clipboard.writeText(document.getElementById('my-id').innerText); alert("ID Copied"); };
-});
-</script>
-</body>
-</html>
+        list
