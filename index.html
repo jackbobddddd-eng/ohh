@@ -36,13 +36,10 @@
         #main-cta { background: white; border: none; color: black; padding: 14px; font-weight: 600; cursor: pointer; border-radius: 8px; width: 100%; margin-top: 5px; }
         .secondary-btn { background: transparent; border: 1px solid #444; color: #888; padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px; cursor: pointer; font-size: 12px; }
         
-        /* SCROLLABLE RANKINGS */
         #leaderboard { 
             margin: 15px 0; text-align: left; background: #050505; padding: 15px; 
             border-radius: 12px; border: 1px solid #222; 
-            height: 200px; /* Fixed height for scrolling */
-            overflow-y: auto; /* Enable scrolling */
-            -webkit-overflow-scrolling: touch; /* Smooth iPad scrolling */
+            height: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch;
         }
         .lb-header { color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; }
         .lb-entry { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #111; font-size: 13px; }
@@ -50,7 +47,6 @@
         .matchup { flex-grow: 1; color: #eee; font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
         .score { color: var(--neon); font-weight: bold; min-width: 70px; text-align: right; }
         
-        /* Custom Scrollbar */
         #leaderboard::-webkit-scrollbar { width: 4px; }
         #leaderboard::-webkit-scrollbar-track { background: transparent; }
         #leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
@@ -74,7 +70,7 @@
             <div class="menu-card">
                 <h1>NEON PONG</h1>
                 <div id="leaderboard">
-                    <div class="lb-header">GLOBAL RANKINGS (LIVE)</div>
+                    <div class="lb-header">GLOBAL RANKINGS (LIVE REFRESH)</div>
                     <div id="lb-list">Connecting to cloud...</div>
                 </div>
                 
@@ -107,9 +103,13 @@
 const API_URL = `https://api.jsonbin.io/v3/b/6786e88cacd35132e70df44b`;
 const API_KEY = "$2a$10$C98V9iS.NlU8F.9Uq1xGGeO2D6fW6V9M/9f/O8U3Qy.8y.G8y.G8y";
 
+let gameState = 'LOBBY'; 
+
 async function fetchGlobalLB() {
     try {
-        const res = await fetch(API_URL + "/latest", { headers: { "X-Master-Key": API_KEY }});
+        const res = await fetch(API_URL + "/latest", { 
+            headers: { "X-Master-Key": API_KEY, "Cache-Control": "no-cache" }
+        });
         const data = await res.json();
         renderLB(data.record.scores || []);
     } catch (e) { console.error("Cloud Error"); }
@@ -149,12 +149,19 @@ function renderLB(scores) {
         </div>`).join('');
 }
 
+// ULTRA-FAST REFRESH LOOP (Every 2 seconds)
+setInterval(() => {
+    if (gameState === 'LOBBY') {
+        fetchGlobalLB();
+    }
+}, 2000);
+
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById("pong");
     const ctx = canvas.getContext("2d");
     canvas.width = 2000; canvas.height = 1250; 
 
-    let gameState = 'LOBBY', mode = 'AI', isHost = true, conn = null;
+    let mode = 'AI', isHost = true, conn = null;
     let speedMult = 1, shake = 0, currentVolley = 0, aiLevel = 'MEDIUM';
     let particles = [], playerName = "PILOT", opponentName = "CPU";
     
@@ -163,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
 
-    fetchGlobalLB(); // Load cloud data on start
+    fetchGlobalLB(); 
 
     class Particle {
         constructor(x, y, color) {
@@ -278,7 +285,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetBall() { ball.x = 1000; ball.y = 625; ball.dx = (Math.random() > 0.5 ? 22 : -22); ball.dy = (Math.random() > 0.5 ? 16 : -16); speedMult = 1; currentVolley = 0; }
 
     function endMatch(w) {
-        gameState = 'END'; document.getElementById('overlay-win').classList.remove('hidden');
+        gameState = 'LOBBY'; // Re-enable fast refresh loop
+        document.getElementById('overlay-win').classList.remove('hidden');
         document.getElementById('win-message').innerText = w + " WINS";
         document.getElementById('rally-stat').innerText = `Rally: ${currentVolley} hits`;
         if(conn && isHost) conn.send({ type: 'WIN', winner: w });
