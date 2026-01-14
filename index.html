@@ -46,7 +46,6 @@
         .matchup { flex-grow: 1; color: #eee; font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
         .score { color: var(--neon); font-weight: bold; min-width: 70px; text-align: right; }
 
-        /* FRIENDS PANEL */
         #friends-toggle { position: absolute; top: 10px; right: 10px; z-index: 20; background: #111; border: 1px solid #333; color: #888; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 10px; }
         #friends-panel { position: absolute; top: 40px; right: 10px; width: 180px; background: #0a0a0a; border: 1px solid #333; border-radius: 10px; z-index: 20; padding: 10px; max-height: 200px; overflow-y: auto; }
         .friend-item { padding: 8px; border-bottom: 1px solid #222; font-size: 11px; cursor: pointer; }
@@ -89,7 +88,7 @@
                 <button id="main-cta" onclick="startAI()">START AI</button>
                 <input type="text" id="join-id" placeholder="Paste Peer ID" style="margin-top:15px">
                 <button class="mode-btn" style="width: 100%;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
-                <div class="id-text" onclick="copyId()">MY PERMANENT ID: <span id="my-id" style="color:var(--pink)">connecting...</span></div>
+                <div class="id-text" onclick="copyId()">MY PERMANENT ID: <span id="my-id" style="color:var(--pink)">booting...</span></div>
             </div>
         </div>
 
@@ -124,10 +123,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
     const aiSettings = {'EASY': { reaction: 0.04, margin: 130 }, 'MEDIUM': { reaction: 0.13, margin: 60 }, 'HARD': { reaction: 0.38, margin: 0 }};
 
-    // --- Networking & Friend Storage ---
-    function initPeer() {
+    // --- INSTANT ID BOOT ---
+    function fastBootPeer() {
         const savedId = localStorage.getItem(ID_KEY);
-        // If we have a saved ID, try to use it. Otherwise, PeerJS generates one.
+        // Pre-display if we have it
+        if(savedId) document.getElementById('my-id').innerText = savedId;
+        
         peer = savedId ? new Peer(savedId) : new Peer();
         
         peer.on('open', id => {
@@ -142,6 +143,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 conn.send({ type: 'START', hostName: playerName });
                 startGame(); 
             });
+        });
+
+        peer.on('error', (err) => {
+            if(err.type === 'unavailable-id') {
+                localStorage.removeItem(ID_KEY); // Reset if ID is taken/broken
+                location.reload();
+            }
         });
     }
 
@@ -168,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playerName = val.toUpperCase(); 
             document.getElementById('overlay-name').classList.add('hidden'); 
             document.getElementById('overlay-start').classList.remove('hidden'); 
-            initPeer();
+            fastBootPeer(); // Trigger connection immediately after name
             renderFriends();
         }
     };
@@ -195,7 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Original Game Logic ---
     window.setAI = (lvl) => {
         aiLevel = lvl;
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
