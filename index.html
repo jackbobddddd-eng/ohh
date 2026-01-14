@@ -1,87 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NEON PONG // PRO</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        :root { --neon: #00f2ff; --pink: #ff007b; }
-        body { 
-            background: #020202; color: white; font-family: -apple-system, system-ui, sans-serif;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 100vh; margin: 0; overflow: hidden; touch-action: none;
-        }
-        #game-container { position: relative; width: 95vw; height: 80vh; max-width: 1200px; max-height: 750px; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #333; }
-        canvas { width: 100%; height: 100%; display: block; }
-        
-        .overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95); display: flex; align-items: center; justify-content: center; z-index: 10;
-        }
-        .menu-card { padding: 30px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 85%; max-width: 400px; background: #0a0a0a; box-shadow: 0 10px 50px rgba(0,0,0,0.8); }
-        h1 { font-size: 2.2rem; font-weight: 200; letter-spacing: 8px; margin-bottom: 20px; text-shadow: 0 0 15px var(--neon); color: #fff; }
-        
-        .mode-select { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 15px 0; }
-        .mode-btn { background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 11px; transition: 0.2s; }
-        .mode-btn.active { border-color: var(--neon); background: rgba(0, 242, 255, 0.1); box-shadow: 0 0 10px var(--neon); }
-        
-        input { background: #111; border: 1px solid #444; color: white; padding: 12px; width: 85%; border-radius: 8px; margin-bottom: 10px; font-size: 16px; text-align: center; outline: none; transition: border 0.3s; }
-        input:focus { border-color: var(--neon); }
-        #main-cta { background: white; border: none; color: black; padding: 14px 30px; font-weight: 600; cursor: pointer; border-radius: 8px; width: 95%; margin-top: 10px; font-size: 14px; }
-        
-        #leaderboard { margin: 15px 0; font-size: 13px; color: #888; text-align: left; background: #111; padding: 12px; border-radius: 10px; border: 1px solid #222; max-height: 120px; overflow-y: auto; }
-        .lb-entry { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px solid #1a1a1a; padding-bottom: 2px; }
-        .hidden { display: none !important; }
-        .id-text { font-size: 10px; color: #444; margin-top: 12px; cursor: pointer; }
-    </style>
-</head>
-<body>
-
-    <div id="game-container">
-        <div id="overlay-name" class="overlay">
-            <div class="menu-card">
-                <h1>IDENTIFY</h1>
-                <p style="font-size: 12px; color: #666; margin-bottom: 20px;">ENTER PILOT NAME FOR LEADERBOARD</p>
-                <input type="text" id="user-name" placeholder="YOUR NAME" maxlength="12">
-                <button id="main-cta" onclick="saveName()">PROCEED</button>
-            </div>
-        </div>
-
-        <div id="overlay-start" class="overlay hidden">
-            <div class="menu-card">
-                <h1>NEON PONG</h1>
-                <div id="leaderboard">
-                    <div style="color:var(--neon); margin-bottom: 5px; font-weight:bold;">🏆 RALLY HALL OF FAME</div>
-                    <div id="lb-list">No data recorded.</div>
-                </div>
-                
-                <div class="mode-select">
-                    <button class="mode-btn" onclick="setAI('EASY')">EASY</button>
-                    <button class="mode-btn active" onclick="setAI('MEDIUM')">MEDIUM</button>
-                    <button class="mode-btn" onclick="setAI('HARD')">HARD</button>
-                </div>
-                <button id="main-cta" onclick="startAI()">START AI SIMULATION</button>
-                
-                <hr style="border:0; border-top:1px solid #222; margin: 20px 0;">
-                
-                <input type="text" id="join-id" placeholder="Paste Peer ID"><br>
-                <button class="mode-btn" style="width: 95%;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
-                <div class="id-text" onclick="copyId()">MY ID: <span id="my-id" style="color:var(--pink)">loading...</span></div>
-            </div>
-        </div>
-
-        <div id="overlay-win" class="overlay hidden">
-            <div class="menu-card">
-                <div id="win-message" style="font-size: 2.5rem; color: var(--neon); margin-bottom: 10px;">WINNER</div>
-                <div id="rally-stat" style="color: #666; margin-bottom: 20px;"></div>
-                <button id="main-cta" onclick="location.reload()">REBOOT SYSTEM</button>
-            </div>
-        </div>
-
-        <canvas id="pong"></canvas>
-    </div>
-
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById("pong");
@@ -89,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.width = 2000; canvas.height = 1250; 
 
     let gameState = 'LOBBY', mode = 'AI', isHost = true, conn = null, speedMult = 1, shake = 0;
-    let currentVolley = 0, aiLevel = 'MEDIUM', particles = [], playerName = "PILOT";
+    let currentVolley = 0, aiLevel = 'MEDIUM', particles = [], playerName = "PILOT", opponentName = "CPU";
     const WIN_SCORE = 7;
     const keys = {};
 
@@ -136,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         event.currentTarget.classList.add('active');
     };
 
-    window.startAI = () => { mode = 'AI'; isHost = true; startGame(); };
+    window.startAI = () => { mode = 'AI'; isHost = true; opponentName = "CPU"; startGame(); };
 
     function startGame() {
         gameState = 'PLAYING';
@@ -144,19 +60,31 @@ document.addEventListener('DOMContentLoaded', () => {
         requestAnimationFrame(gameLoop);
     }
 
+    // UPDATED: Saves both names and handles sync
     function updateLB(v) {
-        if (v < 1) return;
+        if (v < 1 || !isHost) return; // Only Host manages the "Source of Truth"
+        
+        let matchName = `${playerName} vs ${opponentName}`;
         let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
-        s.push({ name: playerName, v: v, d: new Date().toLocaleDateString() });
+        s.push({ name: matchName, v: v, d: new Date().toLocaleDateString() });
         s.sort((a,b) => b.v - a.v);
-        localStorage.setItem('pong_v5', JSON.stringify(s.slice(0, 8)));
+        s = s.slice(0, 8);
+        localStorage.setItem('pong_v5', JSON.stringify(s));
+        
         renderLB();
+        
+        // Send updated leaderboard to peer
+        if (conn) conn.send({ type: 'LB_SYNC', data: s });
     }
 
     function renderLB() {
         const list = document.getElementById('lb-list');
         let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
-        list.innerHTML = s.length ? s.map(x => `<div class="lb-entry"><span>${x.name}</span><span>${x.v} hits</span></div>`).join('') : "No data recorded.";
+        list.innerHTML = s.length ? s.map(x => `
+            <div class="lb-entry">
+                <span style="font-size: 10px;">${x.name}</span>
+                <span style="color:var(--neon)">${x.v} HITS</span>
+            </div>`).join('') : "No data recorded.";
     }
     renderLB();
 
@@ -173,28 +101,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const peer = new Peer();
     peer.on('open', id => document.getElementById('my-id').innerText = id);
+    
+    // Host Listener
     peer.on('connection', c => {
         conn = c; isHost = true; mode = 'MULTIPLAYER';
-        conn.on('open', () => { conn.send({ type: 'START', hostName: playerName }); startGame(); });
         setupPeer();
+        conn.on('open', () => { 
+            conn.send({ type: 'START', hostName: playerName }); 
+            // Sync leaderboard immediately on connect
+            let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
+            conn.send({ type: 'LB_SYNC', data: s });
+            startGame(); 
+        });
     });
 
+    // Guest Joiner
     window.connectToPeer = () => {
         const id = document.getElementById('join-id').value;
         if(!id) return;
         conn = peer.connect(id); isHost = false; mode = 'MULTIPLAYER';
-        conn.on('open', () => { conn.send({ type: 'JOIN', guestName: playerName }); startGame(); });
         setupPeer();
+        conn.on('open', () => { 
+            conn.send({ type: 'JOIN', guestName: playerName }); 
+            startGame(); 
+        });
     };
 
-    let opponentName = "CPU";
     function setupPeer() {
         conn.on('data', data => {
             if (data.type === 'START') { opponentName = data.hostName; startGame(); }
             if (data.type === 'JOIN') { opponentName = data.guestName; }
             if (data.type === 'WIN') endMatch(data.winner);
-            if (isHost) p2.targetY = data.p2Y;
-            else {
+            
+            // Guest receiving leaderboard sync
+            if (data.type === 'LB_SYNC') {
+                localStorage.setItem('pong_v5', JSON.stringify(data.data));
+                renderLB();
+            }
+
+            if (isHost) {
+                p2.targetY = data.p2Y;
+            } else {
                 p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY;
                 p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; currentVolley = data.vol;
                 if(data.hit) burst(data.hit.x, data.hit.y, data.hit.c);
@@ -267,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('overlay-win').classList.remove('hidden');
         document.getElementById('win-message').innerText = w.toUpperCase() + " WINS";
         document.getElementById('rally-stat').innerText = `Best Rally: ${currentVolley} hits`;
-        if(conn) conn.send({ type: 'WIN', winner: w });
+        if(conn && isHost) conn.send({ type: 'WIN', winner: w });
     }
 
     function draw() {
@@ -298,5 +245,3 @@ document.addEventListener('DOMContentLoaded', () => {
     window.copyId = () => { navigator.clipboard.writeText(document.getElementById('my-id').innerText); alert("ID Copied"); };
 });
 </script>
-</body>
-</html>
