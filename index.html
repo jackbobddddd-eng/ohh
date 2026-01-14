@@ -13,13 +13,11 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             height: 100vh; margin: 0; overflow: hidden; touch-action: none;
         }
-        /* iPad Scaling Fix */
         #game-container { 
             position: relative; width: 95vw; height: 80vh; 
             max-width: 1200px; max-height: 750px; 
             background: #000; border-radius: 12px; 
             overflow: hidden; border: 1px solid #333;
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
         }
         canvas { width: 100%; height: 100%; display: block; background: #000; }
         
@@ -36,6 +34,7 @@
         
         input { background: #111; border: 1px solid #444; color: white; padding: 12px; width: 100%; border-radius: 8px; margin-bottom: 10px; font-size: 16px; text-align: center; }
         #main-cta { background: white; border: none; color: black; padding: 14px; font-weight: 600; cursor: pointer; border-radius: 8px; width: 100%; margin-top: 5px; }
+        .secondary-btn { background: transparent; border: 1px solid #444; color: #888; padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px; cursor: pointer; font-size: 12px; }
         
         #leaderboard { margin: 15px 0; font-size: 12px; color: #888; text-align: left; background: #050505; padding: 12px; border-radius: 10px; border: 1px solid #222; max-height: 150px; overflow-y: auto; }
         .lb-entry { display: flex; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid #1a1a1a; padding-bottom: 4px; align-items: center; }
@@ -81,7 +80,8 @@
             <div class="menu-card">
                 <div id="win-message" style="font-size: 2rem; color: var(--neon); margin-bottom: 10px;">WINNER</div>
                 <div id="rally-stat" style="color: #666; margin-bottom: 20px;"></div>
-                <button id="main-cta" onclick="location.reload()">REBOOT SYSTEM</button>
+                <button id="main-cta" onclick="requestRematch()">REMATCH</button>
+                <button class="secondary-btn" onclick="location.reload()">QUIT TO MENU</button>
             </div>
         </div>
 
@@ -92,10 +92,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById("pong");
     const ctx = canvas.getContext("2d");
-    
-    // Internal resolution (high def)
-    canvas.width = 2000; 
-    canvas.height = 1250; 
+    canvas.width = 2000; canvas.height = 1250; 
 
     let gameState = 'LOBBY', mode = 'AI', isHost = true, conn = null;
     let speedMult = 1, shake = 0, currentVolley = 0, aiLevel = 'MEDIUM';
@@ -103,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const WIN_SCORE = 7;
     const keys = {};
-
     const p1 = { y: 525, score: 0, targetY: 525 };
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
@@ -133,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.saveName = () => {
         const val = document.getElementById('user-name').value.trim();
         if(val) {
-            playerName = val;
+            playerName = val.toUpperCase();
             document.getElementById('overlay-name').classList.add('hidden');
             document.getElementById('overlay-start').classList.remove('hidden');
         }
@@ -148,21 +144,30 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startAI = () => { mode = 'AI'; isHost = true; opponentName = "CPU"; startGame(); };
 
     function startGame() {
+        p1.score = 0; p2.score = 0;
+        resetBall();
         gameState = 'PLAYING';
         document.getElementById('overlay-start').classList.add('hidden');
+        document.getElementById('overlay-win').classList.add('hidden');
         requestAnimationFrame(gameLoop);
     }
 
-    // LEADERBOARD LOGIC: Dual Names + Sync
+    window.requestRematch = () => {
+        if (mode === 'AI') {
+            startGame();
+        } else if (conn) {
+            conn.send({ type: 'REMATCH_REQ' });
+            startGame();
+        }
+    };
+
     function updateLB(v) {
         if (v < 1 || !isHost) return; 
-        
-        let matchEntry = `${playerName} vs ${opponentName}`;
+        let matchEntry = `${playerName} VS ${opponentName}`;
         let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
-        s.unshift({ names: matchEntry, hits: v }); // Add to top
-        s = s.slice(0, 8); // Keep last 8
+        s.unshift({ names: matchEntry, hits: v });
+        s = s.slice(0, 8);
         localStorage.setItem('pong_v5', JSON.stringify(s));
-        
         renderLB();
         if (conn) conn.send({ type: 'LB_SYNC', data: s });
     }
@@ -172,13 +177,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
         list.innerHTML = s.length ? s.map(x => `
             <div class="lb-entry">
-                <span style="color:#eee; font-size:10px;">${x.names}</span>
-                <span style="color:var(--neon); font-weight:bold;">${x.hits}</span>
+                <span style="color:#eee; font-size:10px;">${x.names || 'UNKNOWN'}</span>
+                <span style="color:var(--neon); font-weight:bold;">${x.hits || 0} HITS</span>
             </div>`).join('') : "No data recorded.";
     }
     renderLB();
 
-    // iPad Touch & Input
     const inputMove = (cy) => {
         const rect = canvas.getBoundingClientRect();
         const scale = 1250 / rect.height;
@@ -186,15 +190,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if(isHost || mode === 'AI') p1.targetY = y; else p2.targetY = y;
     };
     canvas.addEventListener("mousemove", e => inputMove(e.clientY));
-    canvas.addEventListener("touchmove", e => { 
-        inputMove(e.touches[0].clientY); 
-        e.preventDefault(); 
-    }, { passive: false });
+    canvas.addEventListener("touchmove", e => { inputMove(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
 
-    // PeerJS Setup
     const peer = new Peer();
     peer.on('open', id => document.getElementById('my-id').innerText = id);
-    peer.on('error', () => { document.getElementById('my-id').innerText = "ERROR"; });
 
     peer.on('connection', c => {
         conn = c; isHost = true; mode = 'MULTIPLAYER';
@@ -220,9 +219,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupPeer() {
         conn.on('data', data => {
-            if (data.type === 'START') { opponentName = data.hostName; }
-            if (data.type === 'JOIN') { opponentName = data.guestName; }
+            if (data.type === 'START') { opponentName = data.hostName.toUpperCase(); }
+            if (data.type === 'JOIN') { opponentName = data.guestName.toUpperCase(); }
             if (data.type === 'WIN') endMatch(data.winner);
+            if (data.type === 'REMATCH_REQ') startGame();
             if (data.type === 'LB_SYNC') {
                 localStorage.setItem('pong_v5', JSON.stringify(data.data));
                 renderLB();
@@ -232,7 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY;
                 p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; currentVolley = data.vol;
-                if(data.hit) burst(data.hit.x, data.hit.y, data.hit.c);
             }
         });
     }
@@ -241,7 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function update() {
         if (gameState !== 'PLAYING') return;
-
         p1.y += (p1.targetY - p1.y) * 0.2;
         if (mode === 'AI') {
             let s = aiSettings[aiLevel];
@@ -254,9 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
             speedMult += 0.002;
             ball.x += ball.dx * speedMult;
             ball.y += ball.dy * speedMult;
-
-            if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; shake = 10; }
-
+            if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; shake = 10; burst(ball.x, ball.y, 'white'); }
             if (ball.x < 80 && ball.y > p1.y && ball.y < p1.y + 200) {
                 ball.dx = Math.abs(ball.dx); shake = 20; currentVolley++;
                 burst(60, ball.y, '#00f2ff');
@@ -265,10 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ball.dx = -Math.abs(ball.dx); shake = 20; currentVolley++;
                 burst(1940, ball.y, '#ff007b');
             }
-
             if (ball.x < 0) { p2.score++; updateLB(currentVolley); resetBall(); }
             if (ball.x > 2000) { p1.score++; updateLB(currentVolley); resetBall(); }
-
             if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) {
                 let winner = p1.score >= WIN_SCORE ? playerName : opponentName;
                 endMatch(winner);
@@ -290,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function endMatch(w) {
         gameState = 'END';
         document.getElementById('overlay-win').classList.remove('hidden');
-        document.getElementById('win-message').innerText = w.toUpperCase() + " WINS";
+        document.getElementById('win-message').innerText = w + " WINS";
         document.getElementById('rally-stat').innerText = `Best Rally: ${currentVolley} hits`;
         if(conn && isHost) conn.send({ type: 'WIN', winner: w });
     }
@@ -298,24 +292,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function draw() {
         ctx.fillStyle = "black";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
         ctx.save();
         if (shake > 1) { ctx.translate(Math.random()*shake, Math.random()*shake); shake *= 0.9; }
-
-        // Scores
         ctx.font = "100 250px sans-serif";
         ctx.fillStyle = "rgba(255,255,255,0.05)";
         ctx.textAlign = "center";
         ctx.fillText(p1.score, 600, 450);
         ctx.fillText(p2.score, 1400, 450);
-
-        // Paddles & Ball
         ctx.shadowBlur = 20;
         ctx.fillStyle = "white";
         ctx.shadowColor = "#00f2ff"; ctx.fillRect(40, p1.y, 20, 200);
         ctx.shadowColor = "#ff007b"; ctx.fillRect(1940, p2.y, 20, 200);
         ctx.shadowColor = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 15, 0, Math.PI*2); ctx.fill();
-
         particles.forEach(p => p.draw());
         ctx.restore();
     }
@@ -329,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.copyId = () => { 
         const id = document.getElementById('my-id').innerText;
         navigator.clipboard.writeText(id); 
-        alert("ID Copied: " + id); 
+        alert("ID Copied"); 
     };
 });
 </script>
