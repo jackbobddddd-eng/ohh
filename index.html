@@ -50,11 +50,30 @@
         .score { color: var(--neon); font-weight: bold; min-width: 70px; text-align: right; }
         
         #leaderboard::-webkit-scrollbar { width: 4px; }
-        #leaderboard::-webkit-scrollbar-track { background: transparent; }
         #leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
 
         .hidden { display: none !important; }
         .id-text { font-size: 10px; color: #444; margin-top: 15px; cursor: pointer; }
+
+        /* CHAT SYSTEM */
+        #chat-trigger {
+            position: fixed; bottom: 20px; right: 20px;
+            background: var(--pink); color: white; border: none;
+            padding: 15px; border-radius: 50px; font-weight: bold;
+            box-shadow: 0 0 15px var(--pink); cursor: pointer; z-index: 100;
+        }
+        #chat-window {
+            position: fixed; bottom: 80px; right: 20px;
+            width: 300px; height: 400px; background: #0a0a0a;
+            border: 1px solid #333; border-radius: 15px;
+            display: flex; flex-direction: column; z-index: 100;
+            overflow: hidden;
+        }
+        #chat-messages { flex-grow: 1; padding: 10px; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 5px; }
+        .chat-msg { padding: 5px 8px; border-radius: 5px; background: #1a1a1a; word-break: break-all; }
+        .chat-user { color: var(--neon); font-weight: bold; margin-right: 5px; }
+        #chat-input-area { display: flex; border-top: 1px solid #333; }
+        #chat-input { background: transparent; border: none; padding: 10px; color: white; flex-grow: 1; outline: none; }
     </style>
 </head>
 <body>
@@ -103,6 +122,14 @@
         <canvas id="pong"></canvas>
     </div>
 
+    <button id="chat-trigger" onclick="toggleChat()">CHAT</button>
+    <div id="chat-window" class="hidden">
+        <div id="chat-messages"></div>
+        <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+        </div>
+    </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById("pong");
@@ -118,6 +145,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const p1 = { y: 525, score: 0, targetY: 525 };
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
+
+    // --- CHAT LOGIC ---
+    window.toggleChat = () => document.getElementById('chat-window').classList.toggle('hidden');
+    
+    window.sendChatMessage = () => {
+        const input = document.getElementById('chat-input');
+        const msg = input.value.trim();
+        if(!msg) return;
+        const msgObj = { user: playerName, text: msg };
+        addChatToUI(msgObj);
+        if(conn) conn.send({ type: 'CHAT', data: msgObj });
+        input.value = '';
+    };
+
+    function addChatToUI(obj) {
+        const container = document.getElementById('chat-messages');
+        const el = document.createElement('div');
+        el.className = 'chat-msg';
+        el.innerHTML = `<span class="chat-user">${obj.user}:</span>${obj.text}`;
+        container.appendChild(el);
+        container.scrollTop = container.scrollHeight;
+    }
 
     class Particle {
         constructor(x, y, color) {
@@ -236,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.type === 'JOIN') opponentName = data.guestName.toUpperCase();
             if (data.type === 'WIN') endMatch(data.winner);
             if (data.type === 'REMATCH_REQ') startGame();
+            if (data.type === 'CHAT') addChatToUI(data.data);
             if (data.type === 'LB_SYNC') { 
                 let local = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
                 let combined = [...local, ...data.data];
