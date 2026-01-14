@@ -39,9 +39,7 @@
         #leaderboard { 
             margin: 15px 0; text-align: left; background: #050505; padding: 15px; 
             border-radius: 12px; border: 1px solid #222; 
-            height: 200px; 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
+            height: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch; 
         }
         .lb-header { color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; }
         .lb-entry { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #111; font-size: 13px; }
@@ -54,25 +52,9 @@
 
         .hidden { display: none !important; }
         .id-text { font-size: 10px; color: #444; margin-top: 15px; cursor: pointer; }
-
-        /* PEER DRAWER & CHAT */
-        #peer-toggle { position: fixed; top: 20px; right: 20px; z-index: 100; background: #111; border: 1px solid var(--neon); color: var(--neon); padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; }
-        #peer-drawer { position: fixed; top: 60px; right: 20px; width: 250px; background: #0a0a0a; border: 1px solid #333; border-radius: 10px; z-index: 99; padding: 15px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .peer-list-item { padding: 8px; border-bottom: 1px solid #222; font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; }
-        .peer-list-item:hover { background: #1a1a1a; }
-        #chat-box { height: 150px; overflow-y: auto; background: #000; margin-top: 10px; padding: 5px; font-size: 11px; border-radius: 5px; border: 1px solid #222; }
-        #chat-input { margin-top: 5px; font-size: 12px; padding: 8px; background: #111; color: white; border: 1px solid #333; }
     </style>
 </head>
 <body>
-
-    <button id="peer-toggle" onclick="togglePeers()">PEERS (0)</button>
-    <div id="peer-drawer" class="hidden">
-        <div style="font-size: 10px; color: var(--neon); margin-bottom: 10px; border-bottom: 1px solid #333;">SAVED PEERS</div>
-        <div id="peer-list"></div>
-        <div id="chat-box"></div>
-        <input type="text" id="chat-input" placeholder="Chat..." onkeydown="if(event.key==='Enter') sendChat()">
-    </div>
 
     <div id="game-container">
         <div id="overlay-name" class="overlay">
@@ -126,14 +108,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let particles = [], playerName = "PILOT", opponentName = "CPU";
     
     const STORAGE_KEY = 'pong_v7';
-    const CONTACTS_KEY = 'pong_contacts_v1';
-    const MY_ID_KEY = 'pong_saved_id_v1';
+    const MY_ID_KEY = 'pong_permanent_id';
     const WIN_SCORE = 7;
     const p1 = { y: 525, score: 0, targetY: 525 };
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
 
-    // Networking Setup
+    const aiSettings = {'EASY': { reaction: 0.04, margin: 130 }, 'MEDIUM': { reaction: 0.13, margin: 60 }, 'HARD': { reaction: 0.38, margin: 0 }};
+
     function initNetworking() {
         const savedId = localStorage.getItem(MY_ID_KEY);
         peer = savedId ? new Peer(savedId) : new Peer();
@@ -147,7 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
             conn = c; isHost = true; mode = 'MULTIPLAYER';
             setupPeer();
             conn.on('open', () => { 
-                savePeer(conn.peer, "REMOTE");
                 conn.send({ type: 'START', hostName: playerName });
                 conn.send({ type: 'LB_SYNC', data: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') });
                 startGame(); 
@@ -172,47 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.togglePeers = () => document.getElementById('peer-drawer').classList.toggle('hidden');
-
-    function savePeer(id, name) {
-        let c = JSON.parse(localStorage.getItem(CONTACTS_KEY) || '{}');
-        c[id] = name;
-        localStorage.setItem(CONTACTS_KEY, JSON.stringify(c));
-        renderPeers();
-    }
-
-    function renderPeers() {
-        const list = document.getElementById('peer-list');
-        const c = JSON.parse(localStorage.getItem(CONTACTS_KEY) || '{}');
-        const keys = Object.keys(c);
-        document.getElementById('peer-toggle').innerText = `PEERS (${keys.length})`;
-        list.innerHTML = keys.map(id => `<div class="peer-list-item" onclick="document.getElementById('join-id').value='${id}'"><span>${c[id]}</span><span style="font-size:8px">${id.slice(0,5)}</span></div>`).join('');
-    }
-    renderPeers();
-
-    window.sendChat = () => {
-        const inp = document.getElementById('chat-input');
-        if(!inp.value || !conn) return;
-        conn.send({ type: 'CHAT', msg: inp.value, from: playerName });
-        addChat(playerName, inp.value);
-        inp.value = '';
-    };
-
-    function addChat(user, msg) {
-        const b = document.getElementById('chat-box');
-        b.innerHTML += `<div><b style="color:var(--neon)">${user}:</b> ${msg}</div>`;
-        b.scrollTop = b.scrollHeight;
-    }
-
     window.connectToPeer = () => {
         const id = document.getElementById('join-id').value.trim();
-        if(!id || !peer) return;
+        if(!id) return;
         conn = peer.connect(id); 
         isHost = false; 
         mode = 'MULTIPLAYER';
         setupPeer();
         conn.on('open', () => { 
-            savePeer(id, "FRIEND");
             conn.send({ type: 'JOIN', guestName: playerName }); 
             startGame(); 
         });
@@ -220,9 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupPeer() {
         conn.on('data', data => {
-            if (data.type === 'START') { opponentName = data.hostName.toUpperCase(); savePeer(conn.peer, opponentName); }
-            if (data.type === 'JOIN') { opponentName = data.guestName.toUpperCase(); savePeer(conn.peer, opponentName); }
-            if (data.type === 'CHAT') addChat(data.from, data.msg);
+            if (data.type === 'START') opponentName = data.hostName.toUpperCase();
+            if (data.type === 'JOIN') opponentName = data.guestName.toUpperCase();
             if (data.type === 'WIN') endMatch(data.winner);
             if (data.type === 'REMATCH_REQ') startGame();
             if (data.type === 'LB_SYNC') { localStorage.setItem(STORAGE_KEY, JSON.stringify(data.data)); renderLB(); }
@@ -231,7 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- ORIGINAL GAME LOGIC ---
     window.setAI = (lvl) => {
         aiLevel = lvl;
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -247,11 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('overlay-win').classList.add('hidden');
         requestAnimationFrame(gameLoop);
     }
-
-    window.requestRematch = () => {
-        if (mode === 'AI') startGame();
-        else if (conn) { conn.send({ type: 'REMATCH_REQ' }); startGame(); }
-    };
 
     function updateLB(v) {
         if (v < 1 || !isHost) return; 
@@ -305,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let s = aiSettings[aiLevel];
             p2.y += (ball.y - 100 + (Math.sin(Date.now()/150)*s.margin) - p2.y) * s.reaction;
         } else { p2.y += (p2.targetY - p2.y) * 0.2; }
+
         if (isHost || mode === 'AI') {
             speedMult += 0.002; ball.x += ball.dx * speedMult; ball.y += ball.dy * speedMult;
             if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; shake = 10; burst(ball.x, ball.y, 'white'); }
@@ -335,6 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function gameLoop() { update(); draw(); if(gameState === 'PLAYING') requestAnimationFrame(gameLoop); }
     window.copyId = () => { navigator.clipboard.writeText(document.getElementById('my-id').innerText); alert("ID Copied"); };
+    window.requestRematch = () => { if (mode === 'AI') startGame(); else if (conn) { conn.send({ type: 'REMATCH_REQ' }); startGame(); } };
 });
 </script>
 </body>
