@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NEON PONG // PRO</title>
+    <title>NEON PONG // ULTIMATE</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --neon: #00f2ff; --pink: #ff007b; }
@@ -23,24 +23,40 @@
         
         .overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9); display: flex; align-items: center; justify-content: center; z-index: 10;
+            background: rgba(0, 0, 0, 0.95); display: flex; align-items: center; justify-content: center; z-index: 10;
         }
-        .menu-card { padding: 25px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px; background: #0a0a0a; }
+        .menu-card { padding: 25px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 420px; background: #0a0a0a; }
         h1 { font-size: 1.8rem; letter-spacing: 4px; margin-bottom: 15px; text-shadow: 0 0 15px var(--neon); color: #fff; }
         
         .mode-select { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 15px 0; }
-        .mode-btn { background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 10px; transition: 0.2s; }
+        .mode-btn { background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 10px; }
         .mode-btn.active { border-color: var(--neon); background: rgba(0, 242, 255, 0.1); box-shadow: 0 0 10px var(--neon); }
         
         input { background: #111; border: 1px solid #444; color: white; padding: 12px; width: 100%; border-radius: 8px; margin-bottom: 10px; font-size: 16px; text-align: center; outline: none; }
-        input:focus { border-color: var(--neon); }
         #main-cta { background: white; border: none; color: black; padding: 14px; font-weight: 600; cursor: pointer; border-radius: 8px; width: 100%; margin-top: 5px; }
         .secondary-btn { background: transparent; border: 1px solid #444; color: #888; padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px; cursor: pointer; font-size: 12px; }
         
-        #leaderboard { margin: 15px 0; font-size: 12px; color: #888; text-align: left; background: #050505; padding: 12px; border-radius: 10px; border: 1px solid #222; max-height: 180px; overflow-y: auto; }
-        .lb-entry { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #1a1a1a; padding-bottom: 6px; align-items: center; }
+        /* SCROLLABLE RANKINGS */
+        #leaderboard { 
+            margin: 15px 0; text-align: left; background: #050505; padding: 15px; 
+            border-radius: 12px; border: 1px solid #222; 
+            height: 200px; /* Fixed height for scrolling */
+            overflow-y: auto; /* Enable scrolling */
+            -webkit-overflow-scrolling: touch; /* Smooth iPad scrolling */
+        }
+        .lb-header { color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; }
+        .lb-entry { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #111; font-size: 13px; }
+        .rank { width: 30px; color: #555; font-weight: bold; }
+        .matchup { flex-grow: 1; color: #eee; font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+        .score { color: var(--neon); font-weight: bold; min-width: 70px; text-align: right; }
+        
+        /* Custom Scrollbar */
+        #leaderboard::-webkit-scrollbar { width: 4px; }
+        #leaderboard::-webkit-scrollbar-track { background: transparent; }
+        #leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
         .hidden { display: none !important; }
-        .id-text { font-size: 10px; color: #555; margin-top: 15px; cursor: pointer; word-break: break-all; }
+        .id-text { font-size: 10px; color: #444; margin-top: 15px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -58,8 +74,8 @@
             <div class="menu-card">
                 <h1>NEON PONG</h1>
                 <div id="leaderboard">
-                    <div style="color:var(--neon); margin-bottom: 8px; font-weight:bold; font-size: 10px;">🏆 HALL OF FAME (BEST RALLIES)</div>
-                    <div id="lb-list">No data recorded.</div>
+                    <div class="lb-header">ALL-TIME RANKINGS (HIGH TO LOW)</div>
+                    <div id="lb-list">Fresh data stream...</div>
                 </div>
                 
                 <div class="mode-select">
@@ -67,11 +83,8 @@
                     <button class="mode-btn active" onclick="setAI('MEDIUM')">MEDIUM</button>
                     <button class="mode-btn" onclick="setAI('HARD')">HARD</button>
                 </div>
-                <button id="main-cta" onclick="startAI()">START AI SIMULATION</button>
-                
-                <hr style="border:0; border-top:1px solid #222; margin: 15px 0;">
-                
-                <input type="text" id="join-id" placeholder="Paste Peer ID">
+                <button id="main-cta" onclick="startAI()">START AI</button>
+                <input type="text" id="join-id" placeholder="Paste Peer ID" style="margin-top:15px">
                 <button class="mode-btn" style="width: 100%;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
                 <div class="id-text" onclick="copyId()">MY ID: <span id="my-id" style="color:var(--pink)">connecting...</span></div>
             </div>
@@ -82,7 +95,7 @@
                 <div id="win-message" style="font-size: 2rem; color: var(--neon); margin-bottom: 10px;">WINNER</div>
                 <div id="rally-stat" style="color: #666; margin-bottom: 20px;"></div>
                 <button id="main-cta" onclick="requestRematch()">REMATCH</button>
-                <button class="secondary-btn" onclick="location.reload()">QUIT TO MENU</button>
+                <button class="secondary-btn" onclick="location.reload()">QUIT</button>
             </div>
         </div>
 
@@ -99,8 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let speedMult = 1, shake = 0, currentVolley = 0, aiLevel = 'MEDIUM';
     let particles = [], playerName = "PILOT", opponentName = "CPU";
     
+    // Using v7 key to start with a totally empty leaderboard
+    const STORAGE_KEY = 'pong_v7';
     const WIN_SCORE = 7;
-    const keys = {};
     const p1 = { y: 525, score: 0, targetY: 525 };
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
@@ -108,32 +122,22 @@ document.addEventListener('DOMContentLoaded', () => {
     class Particle {
         constructor(x, y, color) {
             this.x = x; this.y = y;
-            this.vx = (Math.random() - 0.5) * 45;
-            this.vy = (Math.random() - 0.5) * 45;
-            this.alpha = 1; this.color = color;
-            this.size = Math.random() * 10 + 3;
+            this.vx = (Math.random() - 0.5) * 45; this.vy = (Math.random() - 0.5) * 45;
+            this.alpha = 1; this.color = color; this.size = Math.random() * 10 + 3;
         }
         update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.03; }
         draw() {
-            ctx.save(); ctx.globalAlpha = this.alpha;
-            ctx.fillStyle = this.color; ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+            ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
+            ctx.shadowBlur = 15; ctx.shadowColor = this.color;
             ctx.fillRect(this.x, this.y, this.size, this.size); ctx.restore();
         }
     }
 
-    const aiSettings = {
-        'EASY': { reaction: 0.04, margin: 130 },
-        'MEDIUM': { reaction: 0.13, margin: 60 },
-        'HARD': { reaction: 0.38, margin: 0 }
-    };
+    const aiSettings = {'EASY': { reaction: 0.04, margin: 130 }, 'MEDIUM': { reaction: 0.13, margin: 60 }, 'HARD': { reaction: 0.38, margin: 0 }};
 
     window.saveName = () => {
         const val = document.getElementById('user-name').value.trim();
-        if(val) {
-            playerName = val.toUpperCase();
-            document.getElementById('overlay-name').classList.add('hidden');
-            document.getElementById('overlay-start').classList.remove('hidden');
-        }
+        if(val) { playerName = val.toUpperCase(); document.getElementById('overlay-name').classList.add('hidden'); document.getElementById('overlay-start').classList.remove('hidden'); }
     };
 
     window.setAI = (lvl) => {
@@ -145,8 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startAI = () => { mode = 'AI'; isHost = true; opponentName = "CPU"; startGame(); };
 
     function startGame() {
-        p1.score = 0; p2.score = 0;
-        resetBall();
+        p1.score = 0; p2.score = 0; resetBall();
         gameState = 'PLAYING';
         document.getElementById('overlay-start').classList.add('hidden');
         document.getElementById('overlay-win').classList.add('hidden');
@@ -154,60 +157,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.requestRematch = () => {
-        if (mode === 'AI') {
-            startGame();
-        } else if (conn) {
-            conn.send({ type: 'REMATCH_REQ' });
-            startGame();
-        }
+        if (mode === 'AI') startGame();
+        else if (conn) { conn.send({ type: 'REMATCH_REQ' }); startGame(); }
     };
 
-    // --- UPDATED: UNIFIED LEADERBOARD ---
+    // --- LEADERBOARD LOGIC: UNIFIED & SCROLLABLE ---
     function updateLB(v) {
         if (v < 1 || !isHost) return; 
         
-        let matchID = `${playerName} VS ${opponentName}`;
-        let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
+        let names = [playerName, opponentName].sort();
+        let matchID = `${names[0]} VS ${names[1]}`;
         
-        // Find existing match
-        let existingIdx = s.findIndex(item => item && item.names === matchID);
+        let s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         
-        if (existingIdx !== -1) {
-            // Only update if current score is better
-            if (v > s[existingIdx].hits) {
-                s[existingIdx].hits = v;
-            }
+        let existing = s.find(item => item && item.id === matchID);
+        if (existing) {
+            if (v > existing.hits) existing.hits = v;
         } else {
-            // New matchup pair
-            s.push({ names: matchID, hits: v });
+            s.push({ id: matchID, hits: v });
         }
 
-        // Sort by hits (descending) and keep top 8
+        // Sort Highest to Lowest
         s.sort((a, b) => b.hits - a.hits);
-        s = s.slice(0, 8);
         
-        localStorage.setItem('pong_v5', JSON.stringify(s));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
         renderLB();
         if (conn) conn.send({ type: 'LB_SYNC', data: s });
     }
 
     function renderLB() {
         const list = document.getElementById('lb-list');
-        let raw = localStorage.getItem('pong_v5');
-        let s = [];
-        try { s = JSON.parse(raw) || []; } catch(e) { s = []; }
+        let s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         
-        // --- UPDATED: REMOVE UNDEFINED ---
-        const cleanList = s.filter(item => item && item.names && item.hits !== undefined);
-        
-        list.innerHTML = cleanList.length ? cleanList.map(x => `
+        if (s.length === 0) {
+            list.innerHTML = `<div style="text-align:center; padding:20px; color:#222; font-size: 11px;">NO MATCHES RECORDED</div>`;
+            return;
+        }
+
+        list.innerHTML = s.map((x, i) => `
             <div class="lb-entry">
-                <span style="color:#eee; font-size:10px; font-weight: 300;">${x.names}</span>
-                <span style="color:var(--neon); font-weight:bold;">${x.hits}</span>
-            </div>`).join('') : "No records yet.";
+                <span class="rank">${i + 1}.</span>
+                <span class="matchup">${x.id}</span>
+                <span class="score">${x.hits} HITS</span>
+            </div>`).join('');
     }
     renderLB();
 
+    // iPad Touch handling
     const inputMove = (cy) => {
         const rect = canvas.getBoundingClientRect();
         const scale = 1250 / rect.height;
@@ -217,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener("mousemove", e => inputMove(e.clientY));
     canvas.addEventListener("touchmove", e => { inputMove(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
 
+    // Connectivity
     const peer = new Peer();
     peer.on('open', id => document.getElementById('my-id').innerText = id);
 
@@ -225,8 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupPeer();
         conn.on('open', () => { 
             conn.send({ type: 'START', hostName: playerName });
-            let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
-            conn.send({ type: 'LB_SYNC', data: s });
+            conn.send({ type: 'LB_SYNC', data: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') });
             startGame(); 
         });
     });
@@ -236,28 +232,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!id) return;
         conn = peer.connect(id); isHost = false; mode = 'MULTIPLAYER';
         setupPeer();
-        conn.on('open', () => { 
-            conn.send({ type: 'JOIN', guestName: playerName }); 
-            startGame(); 
-        });
+        conn.on('open', () => { conn.send({ type: 'JOIN', guestName: playerName }); startGame(); });
     };
 
     function setupPeer() {
         conn.on('data', data => {
-            if (data.type === 'START') { opponentName = data.hostName.toUpperCase(); }
-            if (data.type === 'JOIN') { opponentName = data.guestName.toUpperCase(); }
+            if (data.type === 'START') opponentName = data.hostName.toUpperCase();
+            if (data.type === 'JOIN') opponentName = data.guestName.toUpperCase();
             if (data.type === 'WIN') endMatch(data.winner);
             if (data.type === 'REMATCH_REQ') startGame();
-            if (data.type === 'LB_SYNC') {
-                localStorage.setItem('pong_v5', JSON.stringify(data.data));
-                renderLB();
-            }
-            if (isHost) {
-                p2.targetY = data.p2Y;
-            } else {
-                p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY;
-                p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; currentVolley = data.vol;
-            }
+            if (data.type === 'LB_SYNC') { localStorage.setItem(STORAGE_KEY, JSON.stringify(data.data)); renderLB(); }
+            if (isHost) p2.targetY = data.p2Y;
+            else { p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY; p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; currentVolley = data.vol; }
         });
     }
 
@@ -269,81 +255,44 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'AI') {
             let s = aiSettings[aiLevel];
             p2.y += (ball.y - 100 + (Math.sin(Date.now()/150)*s.margin) - p2.y) * s.reaction;
-        } else {
-            p2.y += (p2.targetY - p2.y) * 0.2;
-        }
+        } else { p2.y += (p2.targetY - p2.y) * 0.2; }
 
         if (isHost || mode === 'AI') {
-            speedMult += 0.002;
-            ball.x += ball.dx * speedMult;
-            ball.y += ball.dy * speedMult;
+            speedMult += 0.002; ball.x += ball.dx * speedMult; ball.y += ball.dy * speedMult;
             if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; shake = 10; burst(ball.x, ball.y, 'white'); }
-            if (ball.x < 80 && ball.y > p1.y && ball.y < p1.y + 200) {
-                ball.dx = Math.abs(ball.dx); shake = 20; currentVolley++;
-                burst(60, ball.y, '#00f2ff');
-            }
-            if (ball.x > 1920 && ball.y > p2.y && ball.y < p2.y + 200) {
-                ball.dx = -Math.abs(ball.dx); shake = 20; currentVolley++;
-                burst(1940, ball.y, '#ff007b');
-            }
+            if (ball.x < 80 && ball.y > p1.y && ball.y < p1.y + 200) { ball.dx = Math.abs(ball.dx); shake = 20; currentVolley++; burst(60, ball.y, '#00f2ff'); }
+            if (ball.x > 1920 && ball.y > p2.y && ball.y < p2.y + 200) { ball.dx = -Math.abs(ball.dx); shake = 20; currentVolley++; burst(1940, ball.y, '#ff007b'); }
             if (ball.x < 0) { p2.score++; updateLB(currentVolley); resetBall(); }
             if (ball.x > 2000) { p1.score++; updateLB(currentVolley); resetBall(); }
-            if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) {
-                let winner = p1.score >= WIN_SCORE ? playerName : opponentName;
-                endMatch(winner);
-            }
+            if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) endMatch(p1.score >= WIN_SCORE ? playerName : opponentName);
             if (conn) conn.send({ p1Y: p1.y, p2Y: p2.y, ballX: ball.x, ballY: ball.y, s1: p1.score, s2: p2.score, speed: speedMult, vol: currentVolley });
-        } else if (conn) {
-            conn.send({ p2Y: p2.targetY });
-        }
+        } else if (conn) conn.send({ p2Y: p2.targetY });
         particles.forEach((p, i) => { p.update(); if(p.alpha <= 0) particles.splice(i, 1); });
     }
 
-    function resetBall() {
-        ball.x = 1000; ball.y = 625;
-        ball.dx = (Math.random() > 0.5 ? 20 : -20);
-        ball.dy = (Math.random() > 0.5 ? 15 : -15);
-        speedMult = 1; currentVolley = 0;
-    }
+    function resetBall() { ball.x = 1000; ball.y = 625; ball.dx = (Math.random() > 0.5 ? 22 : -22); ball.dy = (Math.random() > 0.5 ? 16 : -16); speedMult = 1; currentVolley = 0; }
 
     function endMatch(w) {
-        gameState = 'END';
-        document.getElementById('overlay-win').classList.remove('hidden');
+        gameState = 'END'; document.getElementById('overlay-win').classList.remove('hidden');
         document.getElementById('win-message').innerText = w + " WINS";
-        document.getElementById('rally-stat').innerText = `Current Rally: ${currentVolley} hits`;
+        document.getElementById('rally-stat').innerText = `Rally: ${currentVolley} hits`;
         if(conn && isHost) conn.send({ type: 'WIN', winner: w });
     }
 
     function draw() {
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        if (shake > 1) { ctx.translate(Math.random()*shake, Math.random()*shake); shake *= 0.9; }
-        ctx.font = "100 250px sans-serif";
-        ctx.fillStyle = "rgba(255,255,255,0.05)";
-        ctx.textAlign = "center";
-        ctx.fillText(p1.score, 600, 450);
-        ctx.fillText(p2.score, 1400, 450);
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = "white";
+        ctx.fillStyle = "black"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.save(); if (shake > 1) { ctx.translate(Math.random()*shake, Math.random()*shake); shake *= 0.9; }
+        ctx.font = "100 250px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.textAlign = "center";
+        ctx.fillText(p1.score, 600, 450); ctx.fillText(p2.score, 1400, 450);
+        ctx.shadowBlur = 20; ctx.fillStyle = "white";
         ctx.shadowColor = "#00f2ff"; ctx.fillRect(40, p1.y, 20, 200);
         ctx.shadowColor = "#ff007b"; ctx.fillRect(1940, p2.y, 20, 200);
         ctx.shadowColor = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 15, 0, Math.PI*2); ctx.fill();
-        particles.forEach(p => p.draw());
-        ctx.restore();
+        particles.forEach(p => p.draw()); ctx.restore();
     }
 
-    function gameLoop() { 
-        update(); 
-        draw(); 
-        if(gameState === 'PLAYING') requestAnimationFrame(gameLoop); 
-    }
-    
-    window.copyId = () => { 
-        const id = document.getElementById('my-id').innerText;
-        navigator.clipboard.writeText(id); 
-        alert("ID Copied"); 
-    };
+    function gameLoop() { update(); draw(); if(gameState === 'PLAYING') requestAnimationFrame(gameLoop); }
+    window.copyId = () => { navigator.clipboard.writeText(document.getElementById('my-id').innerText); alert("ID Copied"); };
 });
 </script>
 </body>
