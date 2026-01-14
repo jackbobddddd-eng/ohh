@@ -2,33 +2,50 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>NEON PONG // IPAD FIX</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEON PONG // IPAD FIX FINAL</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --neon: #00f2ff; --pink: #ff007b; }
+        
+        /* RESET & BASICS */
         * { touch-action: none; -webkit-tap-highlight-color: transparent; outline: none; box-sizing: border-box; }
         
         html, body { 
-            background: #020202; 
-            margin: 0; 
-            padding: 0;
-            height: 100%; 
-            width: 100%; 
+            background: #000; 
+            margin: 0; padding: 0;
+            height: 100%; width: 100%; 
             overflow: hidden; 
             display: flex; 
             align-items: center; 
             justify-content: center;
-            font-family: -apple-system, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, system-ui, sans-serif;
         }
 
-        /* The container determines the game size. JS will resize this strictly. */
+        /* THE MAGIC FIX: 
+           This container will always maintain 16:10 ratio (2000/1250).
+           It will grow as big as possible until it hits a screen edge.
+        */
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
         #game-container { 
-            position: relative; 
+            position: relative;
+            aspect-ratio: 16 / 10; /* Forces 2000x1250 shape */
+            width: 100%;
+            max-height: 100%;
+            max-width: 100%;
             background: #000; 
             box-shadow: 0 0 50px rgba(0,0,0,0.8);
             border: 1px solid #333;
-            overflow: hidden;
+            /* If screen is too wide, limit width by height. If too tall, limit height by width. */
+            margin: auto;
         }
 
         canvas { 
@@ -37,7 +54,7 @@
             height: 100%; 
         }
 
-        /* --- UI / MENU STYLES (Made Bigger for iPad) --- */
+        /* --- BIGGER UI FOR IPAD --- */
         .overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0, 0, 0, 0.92); 
@@ -46,148 +63,125 @@
         }
 
         .menu-card { 
-            padding: 40px; 
-            border-radius: 24px; 
+            padding: 5%; 
+            border-radius: 20px; 
             text-align: center; 
             border: 1px solid rgba(255,255,255,0.15); 
-            width: 90%; 
-            max-width: 550px; /* Increased width */
+            width: 85%; /* Uses % so it fits any iPad width */
+            max-width: 600px; 
             background: #0a0a0a; 
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
 
         h1 { 
-            font-size: 3rem; /* Bigger Title */
+            font-size: clamp(2rem, 5vw, 4rem); /* Scales with screen */
             font-weight: 300; 
             letter-spacing: 8px; 
-            margin: 0 0 30px 0; 
+            margin: 0 0 20px 0; 
             text-shadow: 0 0 20px var(--neon); 
             color: #fff; 
         }
 
-        .mode-select { 
-            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 25px 0; 
-        }
+        .mode-select { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 20px 0; }
 
         .mode-btn { 
             background: #1a1a1a; color: #ccc; 
             border: 1px solid #444; 
-            padding: 15px 10px; /* Bigger touch targets */
-            border-radius: 12px; 
+            padding: 15px 0; 
+            border-radius: 10px; 
             cursor: pointer; 
-            font-size: 14px; 
+            font-size: clamp(12px, 2vw, 16px);
             font-weight: bold;
-            transition: 0.2s;
         }
-        
-        .mode-btn.active { 
-            border-color: var(--neon); 
-            background: rgba(0, 242, 255, 0.15); 
-            color: white;
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.4); 
-        }
+        .mode-btn.active { border-color: var(--neon); background: rgba(0, 242, 255, 0.15); color: white; }
 
         input { 
             background: #111; border: 1px solid #444; color: white; 
-            padding: 18px; /* Bigger input */
-            width: 100%; border-radius: 12px; margin-bottom: 15px; 
+            padding: 15px; 
+            width: 100%; border-radius: 10px; margin-bottom: 15px; 
             font-size: 18px; text-align: center; 
         }
 
         #main-cta { 
             background: white; border: none; color: black; 
-            padding: 18px 40px; /* Bigger CTA */
-            font-size: 18px; font-weight: 800; 
-            cursor: pointer; border-radius: 12px; width: 100%; margin-top: 15px; 
-            text-transform: uppercase; letter-spacing: 1px;
+            padding: 15px; font-size: 20px; font-weight: 800; 
+            cursor: pointer; border-radius: 10px; width: 100%; 
+            text-transform: uppercase;
         }
 
-        /* SCROLLABLE LEADERBOARD */
         #leaderboard { 
-            margin: 20px 0; 
-            font-size: 16px; /* Bigger text */
-            color: #aaa; 
-            text-align: left; 
-            background: #111; 
-            padding: 15px; 
-            border-radius: 12px; 
-            border: 1px solid #222; 
-            height: 200px; 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
+            margin: 20px 0; font-size: 16px; color: #aaa; text-align: left; 
+            background: #111; padding: 15px; border-radius: 10px; 
+            border: 1px solid #222; height: 20vh; /* Dynamic height */
+            overflow-y: auto; -webkit-overflow-scrolling: touch; 
         }
-        #leaderboard::-webkit-scrollbar { width: 6px; }
-        #leaderboard::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
         
         .lb-entry { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 8px; }
-        
         .hidden { display: none !important; }
-        .id-text { font-size: 12px; color: #555; margin-top: 20px; cursor: pointer; text-decoration: underline; }
+        .id-text { font-size: 14px; color: #555; margin-top: 15px; cursor: pointer; text-decoration: underline; }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div id="overlay-name" class="overlay">
-            <div class="menu-card">
-                <h1>IDENTIFY</h1>
-                <input type="text" id="user-name" placeholder="ENTER NAME" maxlength="10">
-                <button id="main-cta" onclick="saveName()">ENTER LOBBY</button>
+    <div id="game-wrapper">
+        <div id="game-container">
+            <div id="overlay-name" class="overlay">
+                <div class="menu-card">
+                    <h1>IDENTIFY</h1>
+                    <input type="text" id="user-name" placeholder="ENTER NAME" maxlength="10">
+                    <button id="main-cta" onclick="saveName()">ENTER LOBBY</button>
+                </div>
             </div>
-        </div>
 
-        <div id="overlay-start" class="overlay hidden">
-            <div class="menu-card">
-                <h1>NEON PONG</h1>
-                <div id="leaderboard">
-                    <div style="color:var(--neon); margin-bottom: 10px; font-weight:bold; text-align:center; position:sticky; top:0; background:#111; padding-bottom:5px; border-bottom:1px solid #333;">
-                        🏆 LONGEST RALLIES
+            <div id="overlay-start" class="overlay hidden">
+                <div class="menu-card">
+                    <h1>NEON PONG</h1>
+                    <div id="leaderboard">
+                        <div style="color:var(--neon); margin-bottom: 10px; font-weight:bold; text-align:center;">🏆 LONGEST RALLIES</div>
+                        <div id="lb-list">No records yet.</div>
                     </div>
-                    <div id="lb-list">No records yet.</div>
+                    
+                    <div class="mode-select">
+                        <button class="mode-btn" onclick="setAI('EASY')">EASY</button>
+                        <button class="mode-btn active" onclick="setAI('MEDIUM')">MEDIUM</button>
+                        <button class="mode-btn" onclick="setAI('HARD')">HARD</button>
+                    </div>
+                    <button id="main-cta" onclick="startAI()">PLAY vs CPU</button>
+                    
+                    <div style="margin: 20px 0; height: 1px; background: #222;"></div>
+                    
+                    <input type="text" id="join-id" placeholder="Paste Opponent ID">
+                    <button class="mode-btn" style="width: 100%; padding: 15px;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
+                    <div class="id-text" onclick="copyId()">MY ID: <span id="my-id" style="color:var(--pink);">Generating...</span></div>
                 </div>
-                
-                <div class="mode-select">
-                    <button class="mode-btn" onclick="setAI('EASY')">EASY</button>
-                    <button class="mode-btn active" onclick="setAI('MEDIUM')">MEDIUM</button>
-                    <button class="mode-btn" onclick="setAI('HARD')">HARD</button>
+            </div>
+
+            <div id="overlay-win" class="overlay hidden">
+                <div class="menu-card">
+                    <div id="win-message" style="font-size: 3rem; font-weight: 800; color: var(--neon); margin-bottom: 10px;">WINNER</div>
+                    <div id="win-versus" style="font-size: 1.5rem; color: #888; margin-bottom: 20px;"></div>
+                    <div id="win-detail" style="font-size: 1.2rem; color: #ccc; background: #111; padding: 15px; border-radius: 8px; margin-bottom: 25px;"></div>
+                    <button id="main-cta" onclick="resetMatch()">PLAY AGAIN</button>
                 </div>
-                <button id="main-cta" onclick="startAI()">PLAY vs CPU</button>
-                
-                <div style="margin: 25px 0; height: 1px; background: #222;"></div>
-                
-                <input type="text" id="join-id" placeholder="Paste Opponent ID">
-                <button class="mode-btn" style="width: 100%; padding: 15px;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
-                <div class="id-text" onclick="copyId()">MY ID: <span id="my-id" style="color:var(--pink); font-weight:bold;">Generating...</span></div>
             </div>
-        </div>
 
-        <div id="overlay-win" class="overlay hidden">
-            <div class="menu-card">
-                <div id="win-message" style="font-size: 2.5rem; font-weight: 800; color: var(--neon); margin-bottom: 10px;">WINNER</div>
-                <div id="win-versus" style="font-size: 1.2rem; color: #888; margin-bottom: 20px;">P1 VS P2</div>
-                <div id="win-detail" style="font-size: 1.1rem; color: #ccc; background: #111; padding: 10px; border-radius: 8px; margin-bottom: 25px;"></div>
-                <button id="main-cta" onclick="resetMatch()">PLAY AGAIN</button>
-            </div>
+            <canvas id="pong"></canvas>
         </div>
-
-        <canvas id="pong"></canvas>
     </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById("pong");
-    const container = document.getElementById("game-container");
     const ctx = canvas.getContext("2d");
     
-    // --- FIXED INTERNAL RESOLUTION ---
-    // The game ALWAYS thinks it is 2000x1250.
-    // We scale the display to fit the screen.
+    // INTERNAL GAME RESOLUTION
+    // We treat the game as 2000x1250 regardless of screen size
     const GAME_WIDTH = 2000;
     const GAME_HEIGHT = 1250;
     canvas.width = GAME_WIDTH; 
     canvas.height = GAME_HEIGHT; 
 
-    // GAME CONSTANTS
+    // CONSTANTS
     const PADDLE_H = 200; 
     const PADDLE_W = 20;
     const BALL_R = 20;
@@ -195,8 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let gameState = 'LOBBY', mode = 'AI', isHost = true, conn = null;
     let speedMult = 1, shake = 0;
-    let currentVolley = 0;
-    let maxMatchVolley = 0; 
+    let currentVolley = 0, maxMatchVolley = 0; 
     let aiLevel = 'MEDIUM';
     let particles = [], playerName = "PILOT", opponentName = "CPU", dataReceived = false;
     const keys = {};
@@ -205,56 +198,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 15, dy: 15 };
 
-    // --- FIX 1: PERFECT ASPECT RATIO SCALING ---
-    // This ensures the 2000x1250 box fits COMPLETELY inside the window.
-    // If the window is too narrow (iPad portrait), it shrinks to fit width.
-    // If the window is too short (Laptop), it shrinks to fit height.
-    function resizeGame() {
-        const targetRatio = GAME_WIDTH / GAME_HEIGHT; // 1.6
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
-        
-        // Calculate scaling based on available space
-        const scaleW = winW / GAME_WIDTH;
-        const scaleH = winH / GAME_HEIGHT;
-        const scale = Math.min(scaleW, scaleH); // Use the smaller scale to ensure full visibility
-
-        // Apply size
-        const finalW = Math.floor(GAME_WIDTH * scale);
-        const finalH = Math.floor(GAME_HEIGHT * scale);
-        
-        container.style.width = `${finalW}px`;
-        container.style.height = `${finalH}px`;
-    }
-    
-    // Resize immediately and on window change
-    window.addEventListener('resize', resizeGame);
-    resizeGame();
-
-    class Particle {
-        constructor(x, y, color) {
-            this.x = x; this.y = y;
-            this.vx = (Math.random() - 0.5) * 35; this.vy = (Math.random() - 0.5) * 35;
-            this.alpha = 1; this.color = color; this.size = Math.random() * 8 + 2;
-        }
-        update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.03; }
-        draw() {
-            ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
-            ctx.fillRect(this.x, this.y, this.size, this.size); ctx.restore();
-        }
-    }
-
-    // --- INPUT HANDLING ---
-    // Convert touch/mouse coordinates back to game coordinates (0-2000, 0-1250)
-    const handleInput = (clientInY) => {
+    // --- INPUT HANDLING (FIXED FOR IPAD) ---
+    // Because CSS scales the canvas, we must map the touch/mouse Y back to 1250
+    const handleInput = (clientY) => {
         const rect = canvas.getBoundingClientRect();
-        // Scale factor between CSS pixels and Internal Canvas pixels
+        
+        // Calculate the ratio: Internal Height / Display Height
         const scaleY = GAME_HEIGHT / rect.height; 
         
-        // Calculate Y relative to canvas top
-        const relativeY = (clientInY - rect.top) * scaleY;
+        // Map the touch point relative to the canvas top
+        const relativeY = (clientY - rect.top) * scaleY;
         
-        // Center the paddle on the input
+        // Center paddle
         let target = relativeY - (PADDLE_H / 2);
         
         if(isHost) p1.targetY = target; else p2.targetY = target;
@@ -263,12 +218,28 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener("keydown", e => keys[e.code] = true);
     window.addEventListener("keyup", e => keys[e.code] = false);
     canvas.addEventListener("mousemove", e => handleInput(e.clientY));
+    
+    // IMPORTANT: Passive false prevents scrolling while playing
     canvas.addEventListener("touchmove", e => {
         handleInput(e.touches[0].clientY);
         e.preventDefault();
     }, { passive: false });
 
-    // --- UI FUNCTIONS ---
+    // --- PARTICLE SYSTEM ---
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y;
+            this.vx = (Math.random() - 0.5) * 35; this.vy = (Math.random() - 0.5) * 35;
+            this.alpha = 1; this.color = color; this.size = Math.random() * 10 + 5;
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.03; }
+        draw() {
+            ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size); ctx.restore();
+        }
+    }
+
+    // --- GAME UI LOGIC ---
     window.saveName = () => {
         playerName = document.getElementById('user-name').value.trim() || "PILOT";
         document.getElementById('overlay-name').classList.add('hidden');
@@ -298,23 +269,23 @@ document.addEventListener('DOMContentLoaded', () => {
         startGame();
     };
 
+    // --- LEADERBOARD ---
     function updateLB(v) {
         if (v < 2) return; 
-        let s = JSON.parse(localStorage.getItem('pong_v14') || '[]');
+        let s = JSON.parse(localStorage.getItem('pong_v15') || '[]');
         s.push({ pair: `${playerName} & ${opponentName}`, v: v });
         s.sort((a,b) => b.v - a.v);
-        localStorage.setItem('pong_v14', JSON.stringify(s.slice(0, 20))); // Keep top 20
+        localStorage.setItem('pong_v15', JSON.stringify(s.slice(0, 20)));
         renderLB();
     }
-
     function renderLB() {
         const list = document.getElementById('lb-list');
-        let s = JSON.parse(localStorage.getItem('pong_v14') || '[]');
+        let s = JSON.parse(localStorage.getItem('pong_v15') || '[]');
         list.innerHTML = s.length ? s.map((x, i) => `<div class="lb-entry"><span>${i+1}. ${x.pair}</span><span style="color:var(--neon)">${x.v} Hits</span></div>`).join('') : "No records yet.";
     }
-    renderLB(); // Init load
+    renderLB();
 
-    // --- MULTIPLAYER ---
+    // --- PEERJS MULTIPLAYER ---
     const peer = new Peer();
     peer.on('open', id => document.getElementById('my-id').innerText = id);
     peer.on('connection', c => { conn = c; isHost = true; mode = 'MULTIPLAYER'; setupPeer(); });
@@ -350,14 +321,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function burst(x, y, c) { for(let i=0; i<15; i++) particles.push(new Particle(x, y, c)); }
 
-    // --- GAME LOGIC ---
+    // --- CORE GAME LOOP ---
     function update() {
-        // Keyboard Support
+        // Paddle Input Smoothing
         if (keys['KeyW'] || keys['ArrowUp']) { if(isHost) p1.targetY -= 40; else p2.targetY -= 40; }
         if (keys['KeyS'] || keys['ArrowDown']) { if(isHost) p1.targetY += 40; else p2.targetY += 40; }
         
-        // Paddle Movement Smoothing
         p1.y += (p1.targetY - p1.y) * 0.25;
+        
+        // AI Logic
         if (mode === 'AI') {
             let s = { 'EASY': 0.035, 'MEDIUM': 0.1, 'HARD': 0.3 }[aiLevel];
             p2.y += (ball.y - 100 - p2.y) * s;
@@ -365,54 +337,48 @@ document.addEventListener('DOMContentLoaded', () => {
             p2.y += (p2.targetY - p2.y) * 0.25; 
         }
 
-        // Clamp Paddles to Screen
-        if(p1.y < 0) p1.y = 0;
-        if(p1.y > GAME_HEIGHT - PADDLE_H) p1.y = GAME_HEIGHT - PADDLE_H;
-        if(p2.y < 0) p2.y = 0;
-        if(p2.y > GAME_HEIGHT - PADDLE_H) p2.y = GAME_HEIGHT - PADDLE_H;
+        // Clamp Paddles (Keep inside 0 - 1250)
+        const maxY = GAME_HEIGHT - PADDLE_H;
+        if(p1.y < 0) p1.y = 0; if(p1.y > maxY) p1.y = maxY;
+        if(p2.y < 0) p2.y = 0; if(p2.y > maxY) p2.y = maxY;
 
         if (isHost || mode === 'AI') {
             speedMult += 0.0015;
             ball.x += ball.dx * speedMult; ball.y += ball.dy * speedMult;
             
-            // Top/Bottom Wall Bounces
+            // Wall Bounces
             if (ball.y <= 0 + BALL_R || ball.y >= GAME_HEIGHT - BALL_R) { 
                 ball.dy *= -1; burst(ball.x, ball.y, 'white'); shake = 4; 
             }
             
-            // --- COLLISION LOGIC ---
-            // Left Paddle (P1)
-            // Check if Ball Left Edge is past Paddle Right Edge AND Ball Right Edge is past Paddle Left Edge
+            // --- COLLISION CHECK (With Ball Radius) ---
+            // Player 1 (Left)
             let p1Right = 40 + PADDLE_W;
-            let p1Left = 40;
-            if (ball.x - BALL_R <= p1Right && ball.x + BALL_R >= p1Left) {
+            if (ball.x - BALL_R <= p1Right && ball.x + BALL_R >= 40) {
                 if (ball.y + BALL_R >= p1.y && ball.y - BALL_R <= p1.y + PADDLE_H) {
-                    if (ball.dx < 0) { // Only bounce if moving left
+                    if (ball.dx < 0) { 
                         ball.dx = Math.abs(ball.dx); 
-                        currentVolley++; 
-                        if(currentVolley > maxMatchVolley) maxMatchVolley = currentVolley; 
+                        currentVolley++; if(currentVolley > maxMatchVolley) maxMatchVolley = currentVolley; 
                         burst(p1Right, ball.y, '#00f2ff'); 
                     }
                 }
             }
 
-            // Right Paddle (P2)
+            // Player 2 (Right)
             let p2Left = 1940;
-            let p2Right = 1940 + PADDLE_W;
-            if (ball.x + BALL_R >= p2Left && ball.x - BALL_R <= p2Right) {
+            if (ball.x + BALL_R >= p2Left && ball.x - BALL_R <= p2Left + PADDLE_W) {
                 if (ball.y + BALL_R >= p2.y && ball.y - BALL_R <= p2.y + PADDLE_H) {
-                    if (ball.dx > 0) { // Only bounce if moving right
+                    if (ball.dx > 0) { 
                         ball.dx = -Math.abs(ball.dx); 
-                        currentVolley++; 
-                        if(currentVolley > maxMatchVolley) maxMatchVolley = currentVolley; 
+                        currentVolley++; if(currentVolley > maxMatchVolley) maxMatchVolley = currentVolley; 
                         burst(p2Left, ball.y, '#ff007b'); 
                     }
                 }
             }
             
             // Scoring
-            if (ball.x < 0) { p2.score++; resetBall(); }
-            if (ball.x > GAME_WIDTH) { p1.score++; resetBall(); }
+            if (ball.x < -50) { p2.score++; resetBall(); }
+            if (ball.x > GAME_WIDTH + 50) { p1.score++; resetBall(); }
             
             if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) { 
                 let w = p1.score >= WIN_SCORE ? playerName : opponentName;
@@ -441,35 +407,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function draw() {
         ctx.fillStyle = "black"; ctx.fillRect(0,0, canvas.width, canvas.height);
-        
-        ctx.save(); 
-        if (shake > 1) { ctx.translate(Math.random()*shake, Math.random()*shake); shake *= 0.9; }
+        ctx.save(); if (shake > 1) { ctx.translate(Math.random()*shake, Math.random()*shake); shake *= 0.9; }
         
         // HUD
-        ctx.font = "bold 40px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.textAlign = "center";
+        ctx.font = "bold 50px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.textAlign = "center";
         ctx.fillText(`${playerName} VS ${opponentName}`, GAME_WIDTH/2, 80);
         ctx.font = "30px sans-serif"; 
-        ctx.fillText(`BEST RALLY: ${maxMatchVolley}`, GAME_WIDTH/2, 130);
+        ctx.fillText(`BEST RALLY: ${maxMatchVolley}`, GAME_WIDTH/2, 140);
         
-        // PADDLES & BALL
-        ctx.shadowBlur = 25; 
-        ctx.fillStyle = "white";
-        
-        ctx.shadowColor = "#00f2ff"; 
-        ctx.fillRect(40, p1.y, PADDLE_W, PADDLE_H);
-        
-        ctx.shadowColor = "#ff007b"; 
-        ctx.fillRect(1940, p2.y, PADDLE_W, PADDLE_H);
-        
-        ctx.shadowColor = "white"; 
-        ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI*2); ctx.fill();
-        
+        // GAME OBJECTS
+        ctx.shadowBlur = 25; ctx.fillStyle = "white";
+        ctx.shadowColor = "#00f2ff"; ctx.fillRect(40, p1.y, PADDLE_W, PADDLE_H);
+        ctx.shadowColor = "#ff007b"; ctx.fillRect(1940, p2.y, PADDLE_W, PADDLE_H);
+        ctx.shadowColor = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI*2); ctx.fill();
         particles.forEach(p => p.draw());
         
-        // SCORE
+        // SCORES
         ctx.font = "200px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.shadowBlur = 0;
         ctx.fillText(p1.score, 600, 450); ctx.fillText(p2.score, 1400, 450);
-        
         ctx.restore();
     }
 
