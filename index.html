@@ -36,10 +36,13 @@
         #main-cta { background: white; border: none; color: black; padding: 14px; font-weight: 600; cursor: pointer; border-radius: 8px; width: 100%; margin-top: 5px; }
         .secondary-btn { background: transparent; border: 1px solid #444; color: #888; padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px; cursor: pointer; font-size: 12px; }
         
+        /* SCROLLABLE RANKINGS */
         #leaderboard { 
             margin: 15px 0; text-align: left; background: #050505; padding: 15px; 
             border-radius: 12px; border: 1px solid #222; 
-            height: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            height: 200px; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; 
         }
         .lb-header { color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; }
         .lb-entry { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #111; font-size: 13px; }
@@ -103,42 +106,63 @@
 const API_URL = `https://api.jsonbin.io/v3/b/6786e88cacd35132e70df44b`;
 const API_KEY = "$2a$10$C98V9iS.NlU8F.9Uq1xGGeO2D6fW6V9M/9f/O8U3Qy.8y.G8y.G8y";
 
-let gameState = 'LOBBY'; 
+let gameState = 'LOBBY';
+
+// FAST REFRESH LOOP: Pulls fresh data every 2 seconds when in menu
+setInterval(() => {
+    if (gameState === 'LOBBY') {
+        fetchGlobalLB();
+    }
+}, 2000);
 
 async function fetchGlobalLB() {
     try {
-        const res = await fetch(API_URL + "/latest", { 
-            headers: { "X-Master-Key": API_KEY, "Cache-Control": "no-cache" }
+        const res = await fetch(`${API_URL}/latest?meta=false&t=${Date.now()}`, { 
+            headers: { "X-Master-Key": API_KEY }
         });
         const data = await res.json();
-        renderLB(data.record.scores || []);
-    } catch (e) { console.error("Cloud Error"); }
+        renderLB(data.scores || []);
+    } catch (e) { console.error("Fetch Error"); }
 }
 
 async function updateGlobalLB(v, pName, oName) {
     if (v < 1) return;
     try {
-        const res = await fetch(API_URL + "/latest", { headers: { "X-Master-Key": API_KEY }});
-        let data = await res.json();
-        let scores = data.record.scores || [];
+        const getRes = await fetch(`${API_URL}/latest?meta=false`, { 
+            headers: { "X-Master-Key": API_KEY }
+        });
+        let data = await getRes.json();
+        let scores = data.scores || [];
+        
         let matchID = [pName, oName].sort().join(" VS ");
         let existing = scores.find(s => s.id === matchID);
-        if (existing) { if (v > existing.hits) existing.hits = v; } 
-        else { scores.push({ id: matchID, hits: v }); }
+        
+        if (existing) {
+            if (v > existing.hits) existing.hits = v;
+        } else {
+            scores.push({ id: matchID, hits: v });
+        }
+
         scores.sort((a, b) => b.hits - a.hits);
+        const updatedData = { scores: scores.slice(0, 50) };
+
         await fetch(API_URL, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify({ scores: scores.slice(0, 50) })
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-Master-Key': API_KEY,
+                'X-Bin-Versioning': 'false'
+            },
+            body: JSON.stringify(updatedData)
         });
-        renderLB(scores);
+        renderLB(updatedData.scores);
     } catch (e) { console.error("Update Error"); }
 }
 
 function renderLB(scores) {
     const list = document.getElementById('lb-list');
     if (!scores || scores.length === 0) {
-        list.innerHTML = `<div style="text-align:center; padding:20px; color:#222; font-size: 11px;">NO RECORDS YET</div>`;
+        list.innerHTML = `<div style="text-align:center; padding:20px; color:#444; font-size: 11px;">NO RECORDS YET</div>`;
         return;
     }
     list.innerHTML = scores.map((x, i) => `
@@ -148,13 +172,6 @@ function renderLB(scores) {
             <span class="score">${x.hits} HITS</span>
         </div>`).join('');
 }
-
-// ULTRA-FAST REFRESH LOOP (Every 2 seconds)
-setInterval(() => {
-    if (gameState === 'LOBBY') {
-        fetchGlobalLB();
-    }
-}, 2000);
 
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById("pong");
@@ -285,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetBall() { ball.x = 1000; ball.y = 625; ball.dx = (Math.random() > 0.5 ? 22 : -22); ball.dy = (Math.random() > 0.5 ? 16 : -16); speedMult = 1; currentVolley = 0; }
 
     function endMatch(w) {
-        gameState = 'LOBBY'; // Re-enable fast refresh loop
+        gameState = 'LOBBY'; 
         document.getElementById('overlay-win').classList.remove('hidden');
         document.getElementById('win-message').innerText = w + " WINS";
         document.getElementById('rally-stat').innerText = `Rally: ${currentVolley} hits`;
