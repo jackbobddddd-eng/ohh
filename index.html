@@ -36,10 +36,13 @@
         #main-cta { background: white; border: none; color: black; padding: 14px; font-weight: 600; cursor: pointer; border-radius: 8px; width: 100%; margin-top: 5px; }
         .secondary-btn { background: transparent; border: 1px solid #444; color: #888; padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px; cursor: pointer; font-size: 12px; }
         
+        /* SCROLLABLE RANKINGS */
         #leaderboard { 
             margin: 15px 0; text-align: left; background: #050505; padding: 15px; 
             border-radius: 12px; border: 1px solid #222; 
-            height: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            height: 200px; /* Fixed height for scrolling */
+            overflow-y: auto; /* Enable scrolling */
+            -webkit-overflow-scrolling: touch; /* Smooth iPad scrolling */
         }
         .lb-header { color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; }
         .lb-entry { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #111; font-size: 13px; }
@@ -47,6 +50,7 @@
         .matchup { flex-grow: 1; color: #eee; font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
         .score { color: var(--neon); font-weight: bold; min-width: 70px; text-align: right; }
         
+        /* Custom Scrollbar */
         #leaderboard::-webkit-scrollbar { width: 4px; }
         #leaderboard::-webkit-scrollbar-track { background: transparent; }
         #leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
@@ -70,8 +74,8 @@
             <div class="menu-card">
                 <h1>NEON PONG</h1>
                 <div id="leaderboard">
-                    <div class="lb-header">GLOBAL LIVE RANKINGS</div>
-                    <div id="lb-list">Syncing with cloud...</div>
+                    <div class="lb-header">GLOBAL RANKINGS (LIVE)</div>
+                    <div id="lb-list">Connecting to cloud...</div>
                 </div>
                 
                 <div class="mode-select">
@@ -99,7 +103,7 @@
     </div>
 
 <script>
-// --- GLOBAL SYNC CONFIG ---
+// --- CLOUD SYNC SETTINGS ---
 const API_URL = `https://api.jsonbin.io/v3/b/6786e88cacd35132e70df44b`;
 const API_KEY = "$2a$10$C98V9iS.NlU8F.9Uq1xGGeO2D6fW6V9M/9f/O8U3Qy.8y.G8y.G8y";
 
@@ -107,8 +111,8 @@ async function fetchGlobalLB() {
     try {
         const res = await fetch(API_URL + "/latest", { headers: { "X-Master-Key": API_KEY }});
         const data = await res.json();
-        renderLB(data.record.scores);
-    } catch (e) { console.error("Cloud Fetch Error"); }
+        renderLB(data.record.scores || []);
+    } catch (e) { console.error("Cloud Error"); }
 }
 
 async function updateGlobalLB(v, pName, oName) {
@@ -128,13 +132,13 @@ async function updateGlobalLB(v, pName, oName) {
             body: JSON.stringify({ scores: scores.slice(0, 50) })
         });
         renderLB(scores);
-    } catch (e) { console.error("Cloud Update Error"); }
+    } catch (e) { console.error("Update Error"); }
 }
 
 function renderLB(scores) {
     const list = document.getElementById('lb-list');
     if (!scores || scores.length === 0) {
-        list.innerHTML = `<div style="text-align:center; padding:20px; color:#222; font-size: 11px;">NO GLOBAL RECORDS</div>`;
+        list.innerHTML = `<div style="text-align:center; padding:20px; color:#222; font-size: 11px;">NO RECORDS YET</div>`;
         return;
     }
     list.innerHTML = scores.map((x, i) => `
@@ -153,11 +157,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let gameState = 'LOBBY', mode = 'AI', isHost = true, conn = null;
     let speedMult = 1, shake = 0, currentVolley = 0, aiLevel = 'MEDIUM';
     let particles = [], playerName = "PILOT", opponentName = "CPU";
+    
     const WIN_SCORE = 7;
-    const p1 = { y: 525, score: 0, targetY: 525 }, p2 = { y: 525, score: 0, targetY: 525 };
+    const p1 = { y: 525, score: 0, targetY: 525 };
+    const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
 
-    fetchGlobalLB();
+    fetchGlobalLB(); // Load cloud data on start
 
     class Particle {
         constructor(x, y, color) {
@@ -256,11 +262,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; shake = 10; burst(ball.x, ball.y, 'white'); }
             if (ball.x < 80 && ball.y > p1.y && ball.y < p1.y + 200) { ball.dx = Math.abs(ball.dx); shake = 20; currentVolley++; burst(60, ball.y, '#00f2ff'); }
             if (ball.x > 1920 && ball.y > p2.y && ball.y < p2.y + 200) { ball.dx = -Math.abs(ball.dx); shake = 20; currentVolley++; burst(1940, ball.y, '#ff007b'); }
+            
             if (ball.x < 0 || ball.x > 2000) {
                 if (ball.x < 0) p2.score++; else p1.score++;
                 updateGlobalLB(currentVolley, playerName, opponentName);
                 resetBall();
             }
+
             if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) endMatch(p1.score >= WIN_SCORE ? playerName : opponentName);
             if (conn) conn.send({ p1Y: p1.y, p2Y: p2.y, ballX: ball.x, ballY: ball.y, s1: p1.score, s2: p2.score, speed: speedMult, vol: currentVolley });
         } else if (conn) conn.send({ p2Y: p2.targetY });
