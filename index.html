@@ -39,20 +39,16 @@
         #leaderboard { 
             margin: 15px 0; text-align: left; background: #050505; padding: 15px; 
             border-radius: 12px; border: 1px solid #222; 
-            height: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch; 
+            height: 200px; overflow-y: auto;
         }
-        .lb-header { color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; }
+        .lb-header { display: flex; justify-content: space-between; color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; }
         .lb-entry { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #111; font-size: 13px; }
         .rank { width: 30px; color: #555; font-weight: bold; }
-        .matchup { flex-grow: 1; color: #eee; font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
-        .score { color: var(--neon); font-weight: bold; min-width: 70px; text-align: right; }
+        .matchup { flex-grow: 1; color: #eee; font-weight: 300; }
+        .score { color: var(--neon); font-weight: bold; }
         
-        #leaderboard::-webkit-scrollbar { width: 4px; }
-        #leaderboard::-webkit-scrollbar-track { background: transparent; }
-        #leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-
         .hidden { display: none !important; }
-        .id-text { font-size: 10px; color: #444; margin-top: 15px; cursor: pointer; }
+        #sync-ui { font-size: 8px; color: #444; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -70,8 +66,11 @@
             <div class="menu-card">
                 <h1>NEON PONG</h1>
                 <div id="leaderboard">
-                    <div class="lb-header">GLOBAL RANKINGS (LIVE)</div>
-                    <div id="lb-list">Initializing Cloud...</div>
+                    <div class="lb-header">
+                        <span>GLOBAL RANKINGS</span>
+                        <span id="sync-ui">Syncing...</span>
+                    </div>
+                    <div id="lb-list">Connecting...</div>
                 </div>
                 
                 <div class="mode-select">
@@ -80,9 +79,8 @@
                     <button class="mode-btn" onclick="setAI('HARD')">HARD</button>
                 </div>
                 <button id="main-cta" onclick="startAI()">START AI</button>
-                <input type="text" id="join-id" placeholder="Paste Peer ID" style="margin-top:15px">
-                <button class="mode-btn" style="width: 100%;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
-                <div class="id-text" onclick="copyId()">MY ID: <span id="my-id" style="color:var(--pink)">connecting...</span></div>
+                <div class="mode-btn" style="width: 100%; margin-top:10px" onclick="connectToPeer()">JOIN MULTIPLAYER</div>
+                <div style="font-size: 10px; color: #444; margin-top: 15px;">MY ID: <span id="my-id" style="color:var(--pink)">...</span></div>
             </div>
         </div>
 
@@ -99,193 +97,104 @@
     </div>
 
 <script>
-// --- CLOUD SYNC SETTINGS ---
 const API_URL = `https://api.jsonbin.io/v3/b/6786e88cacd35132e70df44b`;
 const API_KEY = "$2a$10$C98V9iS.NlU8F.9Uq1xGGeO2D6fW6V9M/9f/O8U3Qy.8y.G8y.G8y";
-
 let gameState = 'LOBBY';
 
+// PULL DATA
 async function fetchGlobalLB() {
+    const syncUI = document.getElementById('sync-ui');
+    syncUI.innerText = "Syncing...";
     try {
         const res = await fetch(`${API_URL}/latest?meta=false&t=${Date.now()}`, { 
             headers: { "X-Master-Key": API_KEY }
         });
         const data = await res.json();
-        
-        // If data is totally empty, initialize it with a dummy record
-        if (!data.scores || data.scores.length === 0) {
-            updateGlobalLB(1, "SYSTEM", "ONLINE");
-        } else {
-            renderLB(data.scores);
-        }
-    } catch (e) { 
-        console.error("Cloud Error:", e);
-        document.getElementById('lb-list').innerHTML = "Cloud Offline";
-    }
+        renderLB(data.scores || []);
+        syncUI.innerText = "Live";
+    } catch (e) { syncUI.innerText = "Offline"; }
 }
 
+// PUSH DATA
 async function updateGlobalLB(v, pName, oName) {
     if (v < 1) return;
     try {
         const getRes = await fetch(`${API_URL}/latest?meta=false`, { headers: { "X-Master-Key": API_KEY }});
         let data = await getRes.json();
         let scores = data.scores || [];
-        
         let matchID = [pName, oName].sort().join(" VS ");
         let existing = scores.find(s => s.id === matchID);
-        
-        if (existing) {
-            if (v > existing.hits) existing.hits = v;
-        } else {
-            scores.push({ id: matchID, hits: v });
-        }
-
+        if (existing) { if (v > existing.hits) existing.hits = v; } 
+        else { scores.push({ id: matchID, hits: v }); }
         scores.sort((a, b) => b.hits - a.hits);
         const updatedData = { scores: scores.slice(0, 50) };
-
         await fetch(API_URL, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Versioning': 'false' },
             body: JSON.stringify(updatedData)
         });
-        renderLB(updatedData.scores);
-    } catch (e) { console.error("Update Error:", e); }
+        fetchGlobalLB(); // Refresh immediately after push
+    } catch (e) { console.error(e); }
 }
 
 function renderLB(scores) {
     const list = document.getElementById('lb-list');
-    if (!scores || scores.length === 0) return;
     list.innerHTML = scores.map((x, i) => `
         <div class="lb-entry">
-            <span class="rank">${i + 1}.</span>
+            <span class="rank">${i + 1}</span>
             <span class="matchup">${x.id}</span>
-            <span class="score">${x.hits} HITS</span>
+            <span class="score">${x.hits}</span>
         </div>`).join('');
 }
 
-// FAST POLLING
 setInterval(() => { if (gameState === 'LOBBY') fetchGlobalLB(); }, 2000);
 
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById("pong");
     const ctx = canvas.getContext("2d");
     canvas.width = 2000; canvas.height = 1250; 
+    let mode = 'AI', isHost = true, conn = null, speedMult = 1, shake = 0, currentVolley = 0, aiLevel = 'MEDIUM', particles = [], playerName = "PILOT", opponentName = "CPU";
+    const WIN_SCORE = 7, p1 = { y: 525, score: 0, targetY: 525 }, p2 = { y: 525, score: 0, targetY: 525 }, ball = { x: 1000, y: 625, dx: 18, dy: 18 };
 
-    let mode = 'AI', isHost = true, conn = null;
-    let speedMult = 1, shake = 0, currentVolley = 0, aiLevel = 'MEDIUM';
-    let particles = [], playerName = "PILOT", opponentName = "CPU";
-    
-    const WIN_SCORE = 7;
-    const p1 = { y: 525, score: 0, targetY: 525 };
-    const p2 = { y: 525, score: 0, targetY: 525 };
-    const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
-
-    fetchGlobalLB(); 
+    fetchGlobalLB();
 
     class Particle {
         constructor(x, y, color) {
-            this.x = x; this.y = y;
-            this.vx = (Math.random() - 0.5) * 45; this.vy = (Math.random() - 0.5) * 45;
+            this.x = x; this.y = y; this.vx = (Math.random() - 0.5) * 45; this.vy = (Math.random() - 0.5) * 45;
             this.alpha = 1; this.color = color; this.size = Math.random() * 10 + 3;
         }
         update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.03; }
-        draw() {
-            ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
-            ctx.shadowBlur = 15; ctx.shadowColor = this.color;
-            ctx.fillRect(this.x, this.y, this.size, this.size); ctx.restore();
-        }
+        draw() { ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.size, this.size); ctx.restore(); }
     }
-
-    const aiSettings = {'EASY': { reaction: 0.04, margin: 130 }, 'MEDIUM': { reaction: 0.13, margin: 60 }, 'HARD': { reaction: 0.38, margin: 0 }};
 
     window.saveName = () => {
         const val = document.getElementById('user-name').value.trim();
         if(val) { playerName = val.toUpperCase(); document.getElementById('overlay-name').classList.add('hidden'); document.getElementById('overlay-start').classList.remove('hidden'); }
     };
-
-    window.setAI = (lvl) => {
-        aiLevel = lvl;
-        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-    };
-
+    window.setAI = (lvl) => { aiLevel = lvl; document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active')); event.currentTarget.classList.add('active'); };
     window.startAI = () => { mode = 'AI'; isHost = true; opponentName = "CPU"; startGame(); };
+    function startGame() { p1.score = 0; p2.score = 0; resetBall(); gameState = 'PLAYING'; document.getElementById('overlay-start').classList.add('hidden'); document.getElementById('overlay-win').classList.add('hidden'); requestAnimationFrame(gameLoop); }
+    window.requestRematch = () => { if (mode === 'AI') startGame(); else if (conn) { conn.send({ type: 'REMATCH_REQ' }); startGame(); } };
 
-    function startGame() {
-        p1.score = 0; p2.score = 0; resetBall();
-        gameState = 'PLAYING';
-        document.getElementById('overlay-start').classList.add('hidden');
-        document.getElementById('overlay-win').classList.add('hidden');
-        requestAnimationFrame(gameLoop);
-    }
-
-    window.requestRematch = () => {
-        if (mode === 'AI') startGame();
-        else if (conn) { conn.send({ type: 'REMATCH_REQ' }); startGame(); }
-    };
-
-    const inputMove = (cy) => {
-        const rect = canvas.getBoundingClientRect();
-        const scale = 1250 / rect.height;
-        const y = (cy - rect.top) * scale - 100;
-        if(isHost || mode === 'AI') p1.targetY = y; else p2.targetY = y;
-    };
-    canvas.addEventListener("mousemove", e => inputMove(e.clientY));
-    canvas.addEventListener("touchmove", e => { inputMove(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+    canvas.addEventListener("mousemove", e => { const rect = canvas.getBoundingClientRect(); if(isHost || mode === 'AI') p1.targetY = (e.clientY - rect.top) * (1250/rect.height) - 100; else p2.targetY = (e.clientY - rect.top) * (1250/rect.height) - 100; });
 
     const peer = new Peer();
     peer.on('open', id => document.getElementById('my-id').innerText = id);
+    peer.on('connection', c => { conn = c; isHost = true; mode = 'MULTIPLAYER'; setupPeer(); conn.on('open', () => { conn.send({ type: 'START', hostName: playerName }); startGame(); }); });
+    window.connectToPeer = () => { const id = prompt("Paste Peer ID"); if(id) { conn = peer.connect(id); isHost = false; mode = 'MULTIPLAYER'; setupPeer(); conn.on('open', () => { conn.send({ type: 'JOIN', guestName: playerName }); startGame(); }); } };
 
-    peer.on('connection', c => {
-        conn = c; isHost = true; mode = 'MULTIPLAYER';
-        setupPeer();
-        conn.on('open', () => { 
-            conn.send({ type: 'START', hostName: playerName });
-            startGame(); 
-        });
-    });
-
-    window.connectToPeer = () => {
-        const id = document.getElementById('join-id').value;
-        if(!id) return;
-        conn = peer.connect(id); isHost = false; mode = 'MULTIPLAYER';
-        setupPeer();
-        conn.on('open', () => { conn.send({ type: 'JOIN', guestName: playerName }); startGame(); });
-    };
-
-    function setupPeer() {
-        conn.on('data', data => {
-            if (data.type === 'START') opponentName = data.hostName.toUpperCase();
-            if (data.type === 'JOIN') opponentName = data.guestName.toUpperCase();
-            if (data.type === 'WIN') endMatch(data.winner);
-            if (data.type === 'REMATCH_REQ') startGame();
-            if (isHost) p2.targetY = data.p2Y;
-            else { p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY; p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; currentVolley = data.vol; }
-        });
-    }
-
-    function burst(x, y, c) { for(let i=0; i<15; i++) particles.push(new Particle(x, y, c)); }
+    function setupPeer() { conn.on('data', data => { if (data.type === 'START') opponentName = data.hostName.toUpperCase(); if (data.type === 'JOIN') opponentName = data.guestName.toUpperCase(); if (data.type === 'WIN') endMatch(data.winner); if (data.type === 'REMATCH_REQ') startGame(); if (isHost) p2.targetY = data.p2Y; else { p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY; p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; currentVolley = data.vol; } }); }
 
     function update() {
         if (gameState !== 'PLAYING') return;
         p1.y += (p1.targetY - p1.y) * 0.2;
-        if (mode === 'AI') {
-            let s = aiSettings[aiLevel];
-            p2.y += (ball.y - 100 + (Math.sin(Date.now()/150)*s.margin) - p2.y) * s.reaction;
-        } else { p2.y += (p2.targetY - p2.y) * 0.2; }
-
+        if (mode === 'AI') p2.y += (ball.y - 100 - p2.y) * (aiLevel === 'HARD' ? 0.35 : 0.1); else p2.y += (p2.targetY - p2.y) * 0.2;
         if (isHost || mode === 'AI') {
-            speedMult += 0.002; ball.x += ball.dx * speedMult; ball.y += ball.dy * speedMult;
-            if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; shake = 10; burst(ball.x, ball.y, 'white'); }
-            if (ball.x < 80 && ball.y > p1.y && ball.y < p1.y + 200) { ball.dx = Math.abs(ball.dx); shake = 20; currentVolley++; burst(60, ball.y, '#00f2ff'); }
-            if (ball.x > 1920 && ball.y > p2.y && ball.y < p2.y + 200) { ball.dx = -Math.abs(ball.dx); shake = 20; currentVolley++; burst(1940, ball.y, '#ff007b'); }
-            
-            if (ball.x < 0 || ball.x > 2000) {
-                if (ball.x < 0) p2.score++; else p1.score++;
-                updateGlobalLB(currentVolley, playerName, opponentName);
-                resetBall();
-            }
-
+            speedMult += 0.0015; ball.x += ball.dx * speedMult; ball.y += ball.dy * speedMult;
+            if (ball.y <= 0 || ball.y >= 1250) ball.dy *= -1;
+            if (ball.x < 80 && ball.y > p1.y && ball.y < p1.y + 200) { ball.dx = Math.abs(ball.dx); currentVolley++; for(let i=0; i<10; i++) particles.push(new Particle(ball.x, ball.y, '#00f2ff')); }
+            if (ball.x > 1920 && ball.y > p2.y && ball.y < p2.y + 200) { ball.dx = -Math.abs(ball.dx); currentVolley++; for(let i=0; i<10; i++) particles.push(new Particle(ball.x, ball.y, '#ff007b')); }
+            if (ball.x < 0 || ball.x > 2000) { if (ball.x < 0) p2.score++; else p1.score++; updateGlobalLB(currentVolley, playerName, opponentName); resetBall(); }
             if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) endMatch(p1.score >= WIN_SCORE ? playerName : opponentName);
             if (conn) conn.send({ p1Y: p1.y, p2Y: p2.y, ballX: ball.x, ballY: ball.y, s1: p1.score, s2: p2.score, speed: speedMult, vol: currentVolley });
         } else if (conn) conn.send({ p2Y: p2.targetY });
@@ -293,29 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetBall() { ball.x = 1000; ball.y = 625; ball.dx = (Math.random() > 0.5 ? 22 : -22); ball.dy = (Math.random() > 0.5 ? 16 : -16); speedMult = 1; currentVolley = 0; }
-
-    function endMatch(w) {
-        gameState = 'LOBBY'; 
-        document.getElementById('overlay-win').classList.remove('hidden');
-        document.getElementById('win-message').innerText = w + " WINS";
-        document.getElementById('rally-stat').innerText = `Rally: ${currentVolley} hits`;
-        if(conn && isHost) conn.send({ type: 'WIN', winner: w });
-    }
-
-    function draw() {
-        ctx.fillStyle = "black"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.save(); if (shake > 1) { ctx.translate(Math.random()*shake, Math.random()*shake); shake *= 0.9; }
-        ctx.font = "100 250px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.textAlign = "center";
-        ctx.fillText(p1.score, 600, 450); ctx.fillText(p2.score, 1400, 450);
-        ctx.shadowBlur = 20; ctx.fillStyle = "white";
-        ctx.shadowColor = "#00f2ff"; ctx.fillRect(40, p1.y, 20, 200);
-        ctx.shadowColor = "#ff007b"; ctx.fillRect(1940, p2.y, 20, 200);
-        ctx.shadowColor = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 15, 0, Math.PI*2); ctx.fill();
-        particles.forEach(p => p.draw()); ctx.restore();
-    }
-
+    function endMatch(w) { gameState = 'LOBBY'; document.getElementById('overlay-win').classList.remove('hidden'); document.getElementById('win-message').innerText = w + " WINS"; document.getElementById('rally-stat').innerText = `Rally: ${currentVolley} hits`; if(conn && isHost) conn.send({ type: 'WIN', winner: w }); }
+    function draw() { ctx.fillStyle = "black"; ctx.fillRect(0, 0, 2000, 1250); ctx.font = "200px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.textAlign = "center"; ctx.fillText(p1.score, 600, 450); ctx.fillText(p2.score, 1400, 450); ctx.fillStyle = "white"; ctx.shadowBlur = 20; ctx.shadowColor = "#00f2ff"; ctx.fillRect(40, p1.y, 20, 200); ctx.shadowColor = "#ff007b"; ctx.fillRect(1940, p2.y, 20, 200); ctx.shadowColor = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 15, 0, Math.PI*2); ctx.fill(); particles.forEach(p => p.draw()); }
     function gameLoop() { update(); draw(); if(gameState === 'PLAYING') requestAnimationFrame(gameLoop); }
-    window.copyId = () => { navigator.clipboard.writeText(document.getElementById('my-id').innerText); alert("ID Copied"); };
 });
 </script>
 </body>
