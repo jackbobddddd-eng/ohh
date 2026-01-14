@@ -61,17 +61,17 @@
         .peer-list-item { padding: 8px; border-bottom: 1px solid #222; font-size: 12px; cursor: pointer; display: flex; justify-content: space-between; }
         .peer-list-item:hover { background: #1a1a1a; }
         #chat-box { height: 150px; overflow-y: auto; background: #000; margin-top: 10px; padding: 5px; font-size: 11px; border-radius: 5px; border: 1px solid #222; }
-        #chat-input { margin-top: 5px; font-size: 12px; padding: 8px; border: 1px solid #333; }
+        #chat-input { margin-top: 5px; font-size: 12px; padding: 8px; background: #111; color: white; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
     <button id="peer-toggle" onclick="togglePeers()">PEERS (0)</button>
     <div id="peer-drawer" class="hidden">
-        <div style="font-size: 10px; color: var(--neon); margin-bottom: 10px; border-bottom: 1px solid #333;">SAVED CONTACTS</div>
+        <div style="font-size: 10px; color: var(--neon); margin-bottom: 10px; border-bottom: 1px solid #333;">SAVED PEERS</div>
         <div id="peer-list"></div>
         <div id="chat-box"></div>
-        <input type="text" id="chat-input" placeholder="Message..." onkeydown="if(event.key==='Enter') sendChat()">
+        <input type="text" id="chat-input" placeholder="Chat..." onkeydown="if(event.key==='Enter') sendChat()">
     </div>
 
     <div id="game-container">
@@ -99,7 +99,7 @@
                 <button id="main-cta" onclick="startAI()">START AI</button>
                 <input type="text" id="join-id" placeholder="Paste Peer ID" style="margin-top:15px">
                 <button class="mode-btn" style="width: 100%;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
-                <div class="id-text" onclick="copyId()">MY PERMANENT ID: <span id="my-id" style="color:var(--pink)">LOADING...</span></div>
+                <div class="id-text" onclick="copyId()">MY PERMANENT ID: <span id="my-id" style="color:var(--pink)">connecting...</span></div>
             </div>
         </div>
 
@@ -127,29 +127,27 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const STORAGE_KEY = 'pong_v7';
     const CONTACTS_KEY = 'pong_contacts_v1';
-    const MY_ID_KEY = 'pong_saved_peer_id'; // Key to save your ID
+    const MY_ID_KEY = 'pong_saved_id_v1';
     const WIN_SCORE = 7;
     const p1 = { y: 525, score: 0, targetY: 525 };
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
 
-    // --- ID PERSISTENCE LOGIC ---
-    function initPeer() {
-        let savedId = localStorage.getItem(MY_ID_KEY);
-        // Create peer with saved ID if exists, otherwise let server assign and then save it
+    // Networking Setup
+    function initNetworking() {
+        const savedId = localStorage.getItem(MY_ID_KEY);
         peer = savedId ? new Peer(savedId) : new Peer();
-        
+
         peer.on('open', id => {
-            localStorage.setItem(MY_ID_KEY, id); // Always save it
+            localStorage.setItem(MY_ID_KEY, id);
             document.getElementById('my-id').innerText = id;
-            console.log("Peer Connection Open. ID:", id);
         });
 
         peer.on('connection', c => {
             conn = c; isHost = true; mode = 'MULTIPLAYER';
             setupPeer();
             conn.on('open', () => { 
-                savePeer(conn.peer, "REMOTE PLAYER");
+                savePeer(conn.peer, "REMOTE");
                 conn.send({ type: 'START', hostName: playerName });
                 conn.send({ type: 'LB_SYNC', data: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') });
                 startGame(); 
@@ -158,9 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         peer.on('error', err => {
             if(err.type === 'unavailable-id') {
-                console.log("ID taken, generating new one...");
                 localStorage.removeItem(MY_ID_KEY);
-                initPeer();
+                initNetworking();
             }
         });
     }
@@ -170,12 +167,71 @@ document.addEventListener('DOMContentLoaded', () => {
         if(val) { 
             playerName = val.toUpperCase(); 
             document.getElementById('overlay-name').classList.add('hidden'); 
-            document.getElementById('overlay-start').classList.remove('hidden');
-            initPeer(); // Initialize networking only after name is set
+            document.getElementById('overlay-start').classList.remove('hidden'); 
+            initNetworking();
         }
     };
 
-    // Keep all other logic strictly the same
+    window.togglePeers = () => document.getElementById('peer-drawer').classList.toggle('hidden');
+
+    function savePeer(id, name) {
+        let c = JSON.parse(localStorage.getItem(CONTACTS_KEY) || '{}');
+        c[id] = name;
+        localStorage.setItem(CONTACTS_KEY, JSON.stringify(c));
+        renderPeers();
+    }
+
+    function renderPeers() {
+        const list = document.getElementById('peer-list');
+        const c = JSON.parse(localStorage.getItem(CONTACTS_KEY) || '{}');
+        const keys = Object.keys(c);
+        document.getElementById('peer-toggle').innerText = `PEERS (${keys.length})`;
+        list.innerHTML = keys.map(id => `<div class="peer-list-item" onclick="document.getElementById('join-id').value='${id}'"><span>${c[id]}</span><span style="font-size:8px">${id.slice(0,5)}</span></div>`).join('');
+    }
+    renderPeers();
+
+    window.sendChat = () => {
+        const inp = document.getElementById('chat-input');
+        if(!inp.value || !conn) return;
+        conn.send({ type: 'CHAT', msg: inp.value, from: playerName });
+        addChat(playerName, inp.value);
+        inp.value = '';
+    };
+
+    function addChat(user, msg) {
+        const b = document.getElementById('chat-box');
+        b.innerHTML += `<div><b style="color:var(--neon)">${user}:</b> ${msg}</div>`;
+        b.scrollTop = b.scrollHeight;
+    }
+
+    window.connectToPeer = () => {
+        const id = document.getElementById('join-id').value.trim();
+        if(!id || !peer) return;
+        conn = peer.connect(id); 
+        isHost = false; 
+        mode = 'MULTIPLAYER';
+        setupPeer();
+        conn.on('open', () => { 
+            savePeer(id, "FRIEND");
+            conn.send({ type: 'JOIN', guestName: playerName }); 
+            startGame(); 
+        });
+    };
+
+    function setupPeer() {
+        conn.on('data', data => {
+            if (data.type === 'START') { opponentName = data.hostName.toUpperCase(); savePeer(conn.peer, opponentName); }
+            if (data.type === 'JOIN') { opponentName = data.guestName.toUpperCase(); savePeer(conn.peer, opponentName); }
+            if (data.type === 'CHAT') addChat(data.from, data.msg);
+            if (data.type === 'WIN') endMatch(data.winner);
+            if (data.type === 'REMATCH_REQ') startGame();
+            if (data.type === 'LB_SYNC') { localStorage.setItem(STORAGE_KEY, JSON.stringify(data.data)); renderLB(); }
+            if (isHost) p2.targetY = data.p2Y;
+            else { p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY; p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; currentVolley = data.vol; }
+        });
+    }
+
+    // --- ORIGINAL GAME LOGIC ---
     window.setAI = (lvl) => {
         aiLevel = lvl;
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -203,8 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let matchID = `${names[0]} VS ${names[1]}`;
         let s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         let existing = s.find(item => item && item.id === matchID);
-        if (existing) { if (v > existing.hits) existing.hits = v; } 
-        else { s.push({ id: matchID, hits: v }); }
+        if (existing) { if (v > existing.hits) existing.hits = v; } else { s.push({ id: matchID, hits: v }); }
         s.sort((a, b) => b.hits - a.hits);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
         renderLB();
@@ -219,67 +274,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderLB();
 
-    window.togglePeers = () => document.getElementById('peer-drawer').classList.toggle('hidden');
-    
-    function savePeer(id, name) {
-        let contacts = JSON.parse(localStorage.getItem(CONTACTS_KEY) || '{}');
-        contacts[id] = name || 'UNKNOWN';
-        localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
-        renderPeers();
-    }
-
-    function renderPeers() {
-        const list = document.getElementById('peer-list');
-        const contacts = JSON.parse(localStorage.getItem(CONTACTS_KEY) || '{}');
-        const keys = Object.keys(contacts);
-        document.getElementById('peer-toggle').innerText = `PEERS (${keys.length})`;
-        list.innerHTML = keys.map(id => `<div class="peer-list-item" onclick="document.getElementById('join-id').value='${id}'"><span>${contacts[id]}</span><span style="font-size:8px; color:#444">${id.substring(0,6)}...</span></div>`).join('');
-    }
-    renderPeers();
-
-    window.sendChat = () => {
-        const inp = document.getElementById('chat-input');
-        if(!inp.value || !conn) return;
-        conn.send({ type: 'CHAT', msg: inp.value, from: playerName });
-        addChat(playerName, inp.value);
-        inp.value = '';
+    const inputMove = (cy) => {
+        const rect = canvas.getBoundingClientRect();
+        const scale = 1250 / rect.height;
+        const y = (cy - rect.top) * scale - 100;
+        if(isHost || mode === 'AI') p1.targetY = y; else p2.targetY = y;
     };
+    canvas.addEventListener("mousemove", e => inputMove(e.clientY));
+    canvas.addEventListener("touchmove", e => { inputMove(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
 
-    function addChat(user, msg) {
-        const box = document.getElementById('chat-box');
-        box.innerHTML += `<div><b style="color:var(--neon)">${user}:</b> ${msg}</div>`;
-        box.scrollTop = box.scrollHeight;
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y;
+            this.vx = (Math.random() - 0.5) * 45; this.vy = (Math.random() - 0.5) * 45;
+            this.alpha = 1; this.color = color; this.size = Math.random() * 10 + 3;
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.03; }
+        draw() {
+            ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
+            ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size); ctx.restore();
+        }
     }
-
-    window.connectToPeer = () => {
-        const id = document.getElementById('join-id').value.trim();
-        if(!id) return;
-        conn = peer.connect(id); isHost = false; mode = 'MULTIPLAYER';
-        setupPeer();
-        conn.on('open', () => { savePeer(id, "FRIEND"); conn.send({ type: 'JOIN', guestName: playerName }); startGame(); });
-    };
-
-    function setupPeer() {
-        conn.on('data', data => {
-            if (data.type === 'START') { opponentName = data.hostName.toUpperCase(); savePeer(conn.peer, opponentName); }
-            if (data.type === 'JOIN') { opponentName = data.guestName.toUpperCase(); savePeer(conn.peer, opponentName); }
-            if (data.type === 'CHAT') addChat(data.from, data.msg);
-            if (data.type === 'WIN') endMatch(data.winner);
-            if (data.type === 'REMATCH_REQ') startGame();
-            if (data.type === 'LB_SYNC') { localStorage.setItem(STORAGE_KEY, JSON.stringify(data.data)); renderLB(); }
-            if (isHost) p2.targetY = data.p2Y;
-            else { p1.y = data.p1Y; p2.y = data.p2Y; ball.x = data.ballX; ball.y = data.ballY; p1.score = data.s1; p2.score = data.s2; speedMult = data.speed; currentVolley = data.vol; }
-        });
-    }
-
-    // Standard Particle/Update/Draw classes from original
-    class P { constructor(x,y,c){this.x=x;this.y=y;this.vx=(Math.random()-0.5)*45;this.vy=(Math.random()-0.5)*45;this.alpha=1;this.color=c;this.size=Math.random()*10+3;} update(){this.x+=this.vx;this.y+=this.vy;this.alpha-=0.03;} draw(){ctx.save();ctx.globalAlpha=this.alpha;ctx.fillStyle=this.color;ctx.shadowBlur=15;ctx.shadowColor=this.color;ctx.fillRect(this.x,this.y,this.size,this.size);ctx.restore();}}
-    function burst(x, y, c) { for(let i=0; i<15; i++) particles.push(new P(ball.x, ball.y, c)); }
+    function burst(x, y, c) { for(let i=0; i<15; i++) particles.push(new Particle(x, y, c)); }
 
     function update() {
         if (gameState !== 'PLAYING') return;
         p1.y += (p1.targetY - p1.y) * 0.2;
-        if (mode === 'AI') { let s = aiSettings[aiLevel]; p2.y += (ball.y - 100 + (Math.sin(Date.now()/150)*s.margin) - p2.y) * s.reaction; } else { p2.y += (p2.targetY - p2.y) * 0.2; }
+        if (mode === 'AI') {
+            let s = aiSettings[aiLevel];
+            p2.y += (ball.y - 100 + (Math.sin(Date.now()/150)*s.margin) - p2.y) * s.reaction;
+        } else { p2.y += (p2.targetY - p2.y) * 0.2; }
         if (isHost || mode === 'AI') {
             speedMult += 0.002; ball.x += ball.dx * speedMult; ball.y += ball.dy * speedMult;
             if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; shake = 10; burst(ball.x, ball.y, 'white'); }
