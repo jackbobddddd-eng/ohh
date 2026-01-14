@@ -32,12 +32,13 @@
         .mode-btn { background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 10px; transition: 0.2s; }
         .mode-btn.active { border-color: var(--neon); background: rgba(0, 242, 255, 0.1); box-shadow: 0 0 10px var(--neon); }
         
-        input { background: #111; border: 1px solid #444; color: white; padding: 12px; width: 100%; border-radius: 8px; margin-bottom: 10px; font-size: 16px; text-align: center; }
+        input { background: #111; border: 1px solid #444; color: white; padding: 12px; width: 100%; border-radius: 8px; margin-bottom: 10px; font-size: 16px; text-align: center; outline: none; }
+        input:focus { border-color: var(--neon); }
         #main-cta { background: white; border: none; color: black; padding: 14px; font-weight: 600; cursor: pointer; border-radius: 8px; width: 100%; margin-top: 5px; }
         .secondary-btn { background: transparent; border: 1px solid #444; color: #888; padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px; cursor: pointer; font-size: 12px; }
         
-        #leaderboard { margin: 15px 0; font-size: 12px; color: #888; text-align: left; background: #050505; padding: 12px; border-radius: 10px; border: 1px solid #222; max-height: 150px; overflow-y: auto; }
-        .lb-entry { display: flex; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid #1a1a1a; padding-bottom: 4px; align-items: center; }
+        #leaderboard { margin: 15px 0; font-size: 12px; color: #888; text-align: left; background: #050505; padding: 12px; border-radius: 10px; border: 1px solid #222; max-height: 180px; overflow-y: auto; }
+        .lb-entry { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #1a1a1a; padding-bottom: 6px; align-items: center; }
         .hidden { display: none !important; }
         .id-text { font-size: 10px; color: #555; margin-top: 15px; cursor: pointer; word-break: break-all; }
     </style>
@@ -57,7 +58,7 @@
             <div class="menu-card">
                 <h1>NEON PONG</h1>
                 <div id="leaderboard">
-                    <div style="color:var(--neon); margin-bottom: 8px; font-weight:bold; font-size: 10px;">🏆 RECENT RALLIES</div>
+                    <div style="color:var(--neon); margin-bottom: 8px; font-weight:bold; font-size: 10px;">🏆 HALL OF FAME (BEST RALLIES)</div>
                     <div id="lb-list">No data recorded.</div>
                 </div>
                 
@@ -161,12 +162,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // COMBINED LEADERBOARD LOGIC
     function updateLB(v) {
         if (v < 1 || !isHost) return; 
-        let matchEntry = `${playerName} VS ${opponentName}`;
+        
+        let matchID = `${playerName} VS ${opponentName}`;
         let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
-        s.unshift({ names: matchEntry, hits: v });
+        
+        // Find if this matchup already exists
+        let existingMatchIndex = s.findIndex(item => item && item.names === matchID);
+        
+        if (existingMatchIndex !== -1) {
+            // Only update if current volley is higher than stored best
+            if (v > s[existingMatchIndex].hits) {
+                s[existingMatchIndex].hits = v;
+            }
+        } else {
+            // New matchup
+            s.push({ names: matchID, hits: v });
+        }
+
+        // Sort by hits (high to low) and keep top 8
+        s.sort((a, b) => b.hits - a.hits);
         s = s.slice(0, 8);
+        
         localStorage.setItem('pong_v5', JSON.stringify(s));
         renderLB();
         if (conn) conn.send({ type: 'LB_SYNC', data: s });
@@ -174,12 +193,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderLB() {
         const list = document.getElementById('lb-list');
-        let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
-        list.innerHTML = s.length ? s.map(x => `
+        let raw = localStorage.getItem('pong_v5');
+        let s = [];
+        try { s = JSON.parse(raw) || []; } catch(e) { s = []; }
+        
+        // Filter out any null/undefined entries that might have been saved before
+        const cleanList = s.filter(item => item && item.names && item.hits !== undefined);
+        
+        list.innerHTML = cleanList.length ? cleanList.map(x => `
             <div class="lb-entry">
-                <span style="color:#eee; font-size:10px;">${x.names || 'UNKNOWN'}</span>
-                <span style="color:var(--neon); font-weight:bold;">${x.hits || 0} HITS</span>
-            </div>`).join('') : "No data recorded.";
+                <span style="color:#eee; font-size:10px;">${x.names}</span>
+                <span style="color:var(--neon); font-weight:bold;">${x.hits} HITS</span>
+            </div>`).join('') : "No records yet.";
     }
     renderLB();
 
@@ -285,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState = 'END';
         document.getElementById('overlay-win').classList.remove('hidden');
         document.getElementById('win-message').innerText = w + " WINS";
-        document.getElementById('rally-stat').innerText = `Best Rally: ${currentVolley} hits`;
+        document.getElementById('rally-stat').innerText = `Current Rally: ${currentVolley} hits`;
         if(conn && isHost) conn.send({ type: 'WIN', winner: w });
     }
 
