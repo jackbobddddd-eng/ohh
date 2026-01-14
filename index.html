@@ -101,7 +101,7 @@
     </div>
 
 <script>
-// --- CLOUD CONFIGURATION ---
+// --- GLOBAL CLOUD CONFIG ---
 const API_URL = `https://api.jsonbin.io/v3/b/6786e88cacd35132e70df44b`;
 const API_KEY = "$2a$10$C98V9iS.NlU8F.9Uq1xGGeO2D6fW6V9M/9f/O8U3Qy.8y.G8y.G8y";
 
@@ -111,37 +111,55 @@ async function fetchGlobalLB() {
             headers: { "X-Master-Key": API_KEY }
         });
         const data = await res.json();
+        // Check if data.scores exists, if not, it's a fresh bin
         renderLB(data.scores || []);
-    } catch (e) { console.error("Cloud fetch failed"); }
+    } catch (e) { 
+        console.error("Cloud fetch failed"); 
+        document.getElementById('lb-list').innerHTML = "<div style='color:red; font-size:10px;'>OFFLINE MODE</div>";
+    }
 }
 
 async function updateGlobalLB(hits, pName, oName) {
     if (hits < 1) return;
     try {
+        // 1. Get current data
         const getRes = await fetch(`${API_URL}/latest?meta=false`, { headers: { "X-Master-Key": API_KEY }});
         let data = await getRes.json();
         let scores = data.scores || [];
+        
+        // 2. Add or Update score
         let matchID = [pName, oName].sort().join(" VS ");
         let existing = scores.find(s => s.id === matchID);
+        
         if (existing) {
             if (hits > existing.hits) existing.hits = hits;
         } else {
             scores.push({ id: matchID, hits: hits });
         }
+
+        // 3. Sort and Limit to top 50
         scores.sort((a, b) => b.hits - a.hits);
+        const finalData = { scores: scores.slice(0, 50) };
+
+        // 4. Push back to cloud
         await fetch(API_URL, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Versioning': 'false' },
-            body: JSON.stringify({ scores: scores.slice(0, 50) })
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-Master-Key': API_KEY,
+                'X-Bin-Versioning': 'false' 
+            },
+            body: JSON.stringify(finalData)
         });
-        renderLB(scores);
-    } catch (e) { console.error("Cloud update failed"); }
+        
+        renderLB(finalData.scores);
+    } catch (e) { console.error("Cloud update failed", e); }
 }
 
 function renderLB(scores) {
     const list = document.getElementById('lb-list');
     if (!scores || scores.length === 0) {
-        list.innerHTML = `<div style="text-align:center; padding:20px; color:#222; font-size: 11px;">NO MATCHES RECORDED</div>`;
+        list.innerHTML = `<div style="text-align:center; padding:20px; color:#444; font-size: 11px;">WAITING FOR FIRST GLOBAL MATCH...</div>`;
         return;
     }
     list.innerHTML = scores.map((x, i) => `
@@ -166,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
 
+    // Start Cloud Polling
     fetchGlobalLB();
     setInterval(() => { if(gameState === 'LOBBY') fetchGlobalLB(); }, 4000);
 
@@ -265,8 +284,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (ball.y <= 0 || ball.y >= canvas.height) { ball.dy *= -1; shake = 10; burst(ball.x, ball.y, 'white'); }
             if (ball.x < 80 && ball.y > p1.y && ball.y < p1.y + 200) { ball.dx = Math.abs(ball.dx); shake = 20; currentVolley++; burst(60, ball.y, '#00f2ff'); }
             if (ball.x > 1920 && ball.y > p2.y && ball.y < p2.y + 200) { ball.dx = -Math.abs(ball.dx); shake = 20; currentVolley++; burst(1940, ball.y, '#ff007b'); }
-            if (ball.x < 0) { p2.score++; if(isHost) updateGlobalLB(currentVolley, playerName, opponentName); resetBall(); }
-            if (ball.x > 2000) { p1.score++; if(isHost) updateGlobalLB(currentVolley, playerName, opponentName); resetBall(); }
+            
+            if (ball.x < 0 || ball.x > 2000) {
+                if (ball.x < 0) p2.score++; else p1.score++;
+                // Update cloud whenever a point is scored
+                if(isHost) updateGlobalLB(currentVolley, playerName, opponentName);
+                resetBall();
+            }
+
             if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) endMatch(p1.score >= WIN_SCORE ? playerName : opponentName);
             if (conn) conn.send({ p1Y: p1.y, p2Y: p2.y, ballX: ball.x, ballY: ball.y, s1: p1.score, s2: p2.score, speed: speedMult, vol: currentVolley });
         } else if (conn) conn.send({ p2Y: p2.targetY });
@@ -280,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('win-message').innerText = w + " WINS";
         document.getElementById('rally-stat').innerText = `Rally: ${currentVolley} hits`;
         if(conn && isHost) conn.send({ type: 'WIN', winner: w });
+        fetchGlobalLB();
     }
 
     function draw() {
