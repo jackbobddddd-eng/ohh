@@ -3,61 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>NEON PONG // IPAD FIX</title>
+    <title>NEON PONG // IPAD EDITION</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --neon: #00f2ff; --pink: #ff007b; }
-        * { touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; box-sizing: border-box; }
-        html, body { background: #000; margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
-        #game-container { position: relative; aspect-ratio: 16 / 10; width: 100%; max-height: 100%; max-width: 100%; background: #000; border: 2px solid #222; margin: auto; }
+        
+        * { 
+            touch-action: none; 
+            -webkit-tap-highlight-color: transparent; 
+            user-select: none;
+            box-sizing: border-box; 
+        }
+        
+        html, body { 
+            background: #000; margin: 0; padding: 0;
+            height: 100%; width: 100%; overflow: hidden; 
+            display: flex; align-items: center; justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overscroll-behavior: none;
+        }
+
+        #game-wrapper { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+
+        #game-container { 
+            position: relative;
+            aspect-ratio: 16 / 10; 
+            width: 100%; max-height: 100%; max-width: 100%;
+            background: #000; border: 1px solid #333;
+        }
+
         canvas { display: block; width: 100%; height: 100%; }
-        .overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.95); display: flex; align-items: center; justify-content: center; z-index: 10; padding: 20px; }
-        .menu-card { padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #333; width: 100%; max-width: 500px; background: #050505; color: white; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
-        h1 { font-size: clamp(1.5rem, 8vw, 2.5rem); letter-spacing: 5px; text-shadow: 0 0 15px var(--neon); margin: 0 0 20px 0; }
-        input { width: 100%; padding: 18px; margin-bottom: 12px; background: #111; border: 1px solid #444; color: white; border-radius: 12px; font-size: 1.1rem; text-align: center; }
-        button { width: 100%; padding: 18px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; font-size: 1.1rem; margin-top: 10px; transition: 0.2s; }
-        .primary-btn { background: white; color: black; }
-        .sec-btn { background: var(--pink); color: white; }
-        .tertiary-btn { background: #222; color: #aaa; border: 1px solid #444; }
-        #leaderboard { background: #111; height: 120px; overflow-y: auto; margin: 15px 0; padding: 15px; border-radius: 12px; text-align: left; font-size: 0.9rem; border: 1px solid #222; }
-        .lb-row { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 5px 0; }
+
+        /* UI Styling */
+        .overlay { 
+            position: absolute; inset: 0; 
+            background: rgba(0, 0, 0, 0.95); 
+            display: flex; align-items: center; justify-content: center; z-index: 10; 
+        }
+
+        .menu-card { 
+            padding: 40px; border-radius: 30px; text-align: center; 
+            border: 1px solid #444; width: 85%; max-width: 450px; 
+            background: #0a0a0a; color: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        h1 { font-size: 2rem; letter-spacing: 4px; text-shadow: 0 0 10px var(--neon); margin-bottom: 25px; }
+        input { 
+            width: 100%; padding: 18px; margin-bottom: 12px; 
+            background: #1a1a1a; border: 1px solid #333; color: white; border-radius: 15px; font-size: 1.1rem;
+            -webkit-appearance: none;
+        }
+        button { 
+            width: 100%; padding: 18px; border-radius: 15px; border: none; 
+            font-weight: bold; cursor: pointer; font-size: 1.1rem; margin-top: 10px;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+        .primary-btn { background: #fff; color: #000; }
+        .sec-btn { background: #222; color: white; border: 1px solid #444; }
+
+        #leaderboard { 
+            background: #111; height: 120px; overflow-y: auto; 
+            margin: 20px 0; padding: 15px; border-radius: 12px; text-align: left; font-size: 0.9rem;
+        }
+        .lb-row { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 8px 0; }
         .hidden { display: none !important; }
-        .status-msg { font-size: 0.8rem; margin-top: 10px; color: var(--neon); }
+        #display-id { font-family: monospace; font-size: 1.2rem; display: block; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div id="screen-name" class="overlay">
-            <div class="menu-card">
-                <h1>NEON PONG</h1>
-                <input type="text" id="in-name" placeholder="ENTER YOUR NAME" maxlength="10">
-                <button class="primary-btn" onclick="uiSaveName()">CONTINUE</button>
+    <div id="game-wrapper">
+        <div id="game-container">
+            <div id="screen-name" class="overlay">
+                <div class="menu-card">
+                    <h1>IDENTIFY</h1>
+                    <input type="text" id="in-name" placeholder="YOUR NAME" maxlength="10">
+                    <button class="primary-btn" onclick="uiSaveName()">CONTINUE</button>
+                </div>
             </div>
-        </div>
 
-        <div id="screen-menu" class="overlay hidden">
-            <div class="menu-card">
-                <h1>LOBBY</h1>
-                <div id="leaderboard"><div id="lb-content">No match history yet.</div></div>
-                <button class="primary-btn" onclick="startSinglePlayer()">PLAY VS CPU</button>
-                <div style="margin:20px 0; border-top:1px solid #333; position:relative;"><span style="position:absolute; top:-12px; left:45%; background:#050505; padding:0 10px; color:#444;">OR</span></div>
-                <input type="text" id="in-peer" placeholder="PASTE OPPONENT ID">
-                <button id="btn-join" class="sec-btn" onclick="joinMultiplayer()">JOIN MULTIPLAYER</button>
-                <p style="font-size:0.8rem; color:#666; margin-top:15px; cursor: pointer;" onclick="copyMyID()">MY ID: <span id="display-id" style="color:var(--neon); font-weight:bold; text-decoration:underline;">CONNECTING...</span></p>
-                <div id="status" class="status-msg"></div>
+            <div id="screen-menu" class="overlay hidden">
+                <div class="menu-card">
+                    <h1>NEON PONG</h1>
+                    <div id="leaderboard"><div id="lb-content">No match history yet...</div></div>
+                    <button class="primary-btn" onclick="startSinglePlayer()">SOLO VS CPU</button>
+                    <div style="margin:25px 0; border-top:1px solid #333; position:relative;">
+                        <span style="position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:#0a0a0a; padding:0 10px; color:#666; font-size:0.7rem;">OR MULTIPLAYER</span>
+                    </div>
+                    <input type="text" id="in-peer" placeholder="PASTE FRIEND ID">
+                    <button class="sec-btn" onclick="joinMultiplayer()">JOIN FRIEND</button>
+                    <p style="font-size:0.8rem; color:#666; margin-top:20px;">MY ID (Share this): <span id="display-id" style="color:var(--pink)">LOADING...</span></p>
+                </div>
             </div>
-        </div>
 
-        <div id="screen-win" class="overlay hidden">
-            <div class="menu-card">
-                <h2 id="win-txt" style="font-size:3rem; color:var(--neon); margin:0;">WINNER!</h2>
-                <p id="rally-txt" style="font-size:1.2rem; color:#888;">Best Rally: 0</p>
-                <button class="primary-btn" onclick="location.reload()">BACK TO MENU</button>
+            <div id="screen-win" class="overlay hidden">
+                <div class="menu-card">
+                    <h2 id="win-txt" style="font-size:2.5rem; color:var(--neon)">WINNER!</h2>
+                    <p id="rally-txt" style="margin-bottom:20px;">Best Rally: 0</p>
+                    <button class="primary-btn" onclick="location.reload()">BACK TO MENU</button>
+                </div>
             </div>
-        </div>
 
-        <canvas id="stage"></canvas>
+            <canvas id="stage"></canvas>
+        </div>
     </div>
 
 <script>
@@ -71,35 +121,46 @@
     let score = [0, 0], rally = 0, bestRally = 0;
     
     const ball = { x: GW/2, y: GH/2, dx: 16, dy: 16, r: 20, speed: 1 };
-    const p1 = { y: 525, h: 220, w: 25, targetY: 525 };
-    const p2 = { y: 525, h: 220, w: 25, targetY: 525 };
+    const p1 = { y: 525, h: 220, w: 25, targetY: 525 }; // Left (Host)
+    const p2 = { y: 525, h: 220, w: 25, targetY: 525 }; // Right (Client)
 
-    // --- INPUT ---
-    function movePaddle(clientY) {
+    // --- INPUT HANDLING ---
+    function handleInput(clientY) {
         const rect = canvas.getBoundingClientRect();
         const scale = GH / rect.height;
         const pos = (clientY - rect.top) * scale - (p1.h / 2);
-        if (isHost) p1.targetY = pos; else p2.targetY = pos;
+        
+        if (isHost) {
+            p1.targetY = pos;
+        } else {
+            p2.targetY = pos; // Instant local feedback for client
+            if(peerConn) peerConn.send({ type: 'POS', y: pos });
+        }
     }
-    canvas.addEventListener('mousemove', e => movePaddle(e.clientY));
-    canvas.addEventListener('touchmove', e => { movePaddle(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
 
-    // --- PEERJS CORE ---
+    canvas.addEventListener('mousemove', e => handleInput(e.clientY));
+    canvas.addEventListener('touchmove', e => {
+        handleInput(e.touches[0].clientY);
+        e.preventDefault();
+    }, { passive: false });
+
+    // --- PEER JS NETWORKING ---
     const peer = new Peer();
-    peer.on('open', id => document.getElementById('display-id').innerText = id);
     
+    peer.on('open', id => {
+        document.getElementById('display-id').innerText = id;
+    });
+
+    // Host Listener
     peer.on('connection', c => {
-        peerConn = c; 
+        peerConn = c;
         isHost = true;
-        document.getElementById('status').innerText = "Connecting to player...";
         setupSocket();
     });
 
     function joinMultiplayer() {
         const id = document.getElementById('in-peer').value.trim();
-        if(!id) { alert("Please paste an ID first!"); return; }
-        
-        document.getElementById('btn-join').innerText = "JOINING...";
+        if(!id) return;
         peerConn = peer.connect(id);
         isHost = false;
         setupSocket();
@@ -108,104 +169,125 @@
     function setupSocket() {
         peerConn.on('open', () => {
             peerConn.send({ type: 'JOIN', name: name });
-            document.getElementById('status').innerText = "Handshake successful!";
         });
 
         peerConn.on('data', data => {
             if (data.type === 'JOIN') { 
                 oppName = data.name; 
-                peerConn.send({type:'START_GAME', name:name}); 
+                peerConn.send({type:'START', name:name});
                 startGame(); 
             }
-            if (data.type === 'START_GAME') { 
+            if (data.type === 'START') { 
                 oppName = data.name; 
                 startGame(); 
             }
             
             if (isHost) {
-                if(data.p2Y !== undefined) p2.targetY = data.p2Y;
+                if(data.type === 'POS') p2.targetY = data.y;
             } else {
+                // Client syncs to Host world state
                 p1.y = data.p1Y;
-                ball.x = data.bx; ball.y = data.by;
-                score = data.score; rally = data.rally;
+                p2.y = data.p2Y; // Peer's echoed pos
+                ball.x = data.bx; 
+                ball.y = data.by;
+                score = data.score; 
+                rally = data.rally;
+                if(data.state === 'END') endGame();
             }
-        });
-
-        peerConn.on('error', err => {
-            alert("Connection error!");
-            location.reload();
         });
     }
 
-    // --- GAME ENGINE ---
+    // --- GAME CORE ---
     function uiSaveName() {
-        name = document.getElementById('in-name').value || "PLAYER";
+        name = document.getElementById('in-name').value.toUpperCase() || "PLAYER";
         document.getElementById('screen-name').classList.add('hidden');
         document.getElementById('screen-menu').classList.remove('hidden');
         loadLB();
     }
 
-    function copyMyID() {
-        const id = document.getElementById('display-id').innerText;
-        navigator.clipboard.writeText(id);
-        document.getElementById('status').innerText = "ID Copied to clipboard!";
+    function startSinglePlayer() { 
+        isHost = true; 
+        oppName = "CPU"; 
+        startGame(); 
     }
 
-    function startSinglePlayer() { isHost = true; oppName = "CPU"; startGame(); }
-    
     function startGame() { 
         state = 'PLAY'; 
         document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
-        requestAnimationFrame(loop); 
+        requestAnimationFrame(loop);
     }
 
     function resetBall() {
         ball.x = GW/2; ball.y = GH/2;
-        ball.dx *= -1; ball.speed = 1;
+        ball.dx *= -1; ball.speed = 1.0;
         if (rally > bestRally) bestRally = rally;
         rally = 0;
     }
 
     function update() {
-        p1.y += (p1.targetY - p1.y) * 0.2;
-        p2.y += (p2.targetY - p2.y) * 0.2;
+        // Smooth transitions
+        p1.y += (p1.targetY - p1.y) * 0.3;
+        p2.y += (p2.targetY - p2.y) * 0.3;
+
         p1.y = Math.max(0, Math.min(GH - p1.h, p1.y));
         p2.y = Math.max(0, Math.min(GH - p2.h, p2.y));
 
         if (isHost) {
-            if (oppName === "CPU") p2.targetY += (ball.y - (p2.y + p2.h/2)) * 0.1;
+            if (oppName === "CPU") p2.targetY += (ball.y - (p2.y + p2.h/2)) * 0.12;
+
             ball.x += ball.dx * ball.speed;
             ball.y += ball.dy * ball.speed;
-            ball.speed += 0.0006;
+            ball.speed += 0.0005;
 
             if (ball.y < 0 || ball.y > GH) ball.dy *= -1;
-            if (ball.dx < 0 && ball.x < 80 && ball.y > p1.y && ball.y < p1.y + p1.h) { ball.dx *= -1; ball.x = 81; rally++; }
-            if (ball.dx > 0 && ball.x > GW - 80 && ball.y > p2.y && ball.y < p2.y + p2.h) { ball.dx *= -1; ball.x = GW - 81; rally++; }
+
+            if (ball.dx < 0 && ball.x < 80 && ball.y > p1.y && ball.y < p1.y + p1.h) {
+                ball.dx *= -1; ball.x = 81; rally++;
+            }
+            if (ball.dx > 0 && ball.x > GW - 80 && ball.y > p2.y && ball.y < p2.y + p2.h) {
+                ball.dx *= -1; ball.x = GW - 81; rally++;
+            }
 
             if (ball.x < 0) { score[1]++; resetBall(); }
             if (ball.x > GW) { score[0]++; resetBall(); }
+
             if (score[0] >= 7 || score[1] >= 7) endGame();
-            if (peerConn) peerConn.send({ p1Y: p1.y, bx: ball.x, by: ball.y, score, rally });
-        } else {
-            if (peerConn) peerConn.send({ p2Y: p2.targetY });
+
+            if (peerConn && peerConn.open) {
+                peerConn.send({ 
+                    p1Y: p1.y, p2Y: p2.y, bx: ball.x, by: ball.y, 
+                    score, rally, state 
+                });
+            }
         }
     }
 
     function draw() {
         ctx.fillStyle = '#000'; ctx.fillRect(0,0,GW,GH);
-        ctx.strokeStyle = '#222'; ctx.setLineDash([20, 20]);
+        
+        ctx.strokeStyle = '#222'; ctx.setLineDash([20, 20]); ctx.lineWidth = 5;
         ctx.beginPath(); ctx.moveTo(GW/2, 0); ctx.lineTo(GW/2, GH); ctx.stroke();
         
-        ctx.fillStyle = 'white'; ctx.font = '80px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText(score[0], GW/2 - 200, 150);
-        ctx.fillText(score[1], GW/2 + 200, 150);
-        ctx.font = '30px sans-serif'; ctx.fillText(`RALLY: ${rally}`, GW/2, 50);
+        ctx.fillStyle = 'white'; ctx.font = 'bold 100px sans-serif'; ctx.textAlign = 'center';
+        ctx.globalAlpha = 0.5;
+        ctx.fillText(score[0], GW/2 - 250, 180);
+        ctx.fillText(score[1], GW/2 + 250, 180);
+        ctx.globalAlpha = 1;
+        
+        ctx.font = '40px sans-serif';
+        ctx.fillText(`RALLY: ${rally}`, GW/2, 60);
 
-        ctx.fillStyle = '#00f2ff'; ctx.shadowBlur = 20; ctx.shadowColor = '#00f2ff';
+        // Paddles with Glow
+        ctx.shadowBlur = 25; 
+        ctx.shadowColor = '#00f2ff'; ctx.fillStyle = '#00f2ff';
         ctx.fillRect(40, p1.y, p1.w, p1.h);
-        ctx.fillStyle = '#ff007b'; ctx.shadowColor = '#ff007b';
+        
+        ctx.shadowColor = '#ff007b'; ctx.fillStyle = '#ff007b';
         ctx.fillRect(GW - 40 - p2.w, p2.y, p2.w, p2.h);
-        ctx.fillStyle = 'white'; ctx.shadowColor = 'white';
+
+        // Ball
+        ctx.shadowColor = 'white'; ctx.fillStyle = 'white';
+        ctx.shadowBlur = 15;
         ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0;
     }
@@ -220,24 +302,23 @@
         state = 'END';
         const win = score[0] >= 7 ? name : oppName;
         document.getElementById('screen-win').classList.remove('hidden');
-        document.getElementById('win-txt').innerText = win.toUpperCase() + " WINS!";
+        document.getElementById('win-txt').innerText = win + " WINS!";
         document.getElementById('rally-txt').innerText = "Match Best Rally: " + bestRally;
         saveLB(win, bestRally);
     }
 
     function saveLB(w, r) {
-        let history = JSON.parse(localStorage.getItem('pong_scores') || '[]');
-        history.push({ name: w, rally: r });
+        let history = JSON.parse(localStorage.getItem('pong_scores_ipad') || '[]');
+        history.push({ name: w, rally: r, date: new Date().toLocaleDateString() });
         history.sort((a,b) => b.rally - a.rally);
-        localStorage.setItem('pong_scores', JSON.stringify(history.slice(0, 5)));
+        localStorage.setItem('pong_scores_ipad', JSON.stringify(history.slice(0, 5)));
     }
 
     function loadLB() {
-        const history = JSON.parse(localStorage.getItem('pong_scores') || '[]');
+        const history = JSON.parse(localStorage.getItem('pong_scores_ipad') || '[]');
         const div = document.getElementById('lb-content');
-        if (history.length > 0) {
-            div.innerHTML = '<b>TOP RALLIES:</b>' + history.map(h => `<div class="lb-row"><span>${h.name}</span><span>${h.rally} hits</span></div>`).join('');
-        }
+        if (history.length === 0) return;
+        div.innerHTML = '<b>TOP RALLIES:</b><br>' + history.map(h => `<div class="lb-row"><span>${h.name}</span><span>${h.rally} hits</span></div>`).join('');
     }
 </script>
 </body>
