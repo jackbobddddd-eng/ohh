@@ -162,27 +162,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // COMBINED LEADERBOARD LOGIC
+    // --- UPDATED: UNIFIED LEADERBOARD ---
     function updateLB(v) {
         if (v < 1 || !isHost) return; 
         
         let matchID = `${playerName} VS ${opponentName}`;
         let s = JSON.parse(localStorage.getItem('pong_v5') || '[]');
         
-        // Find if this matchup already exists
-        let existingMatchIndex = s.findIndex(item => item && item.names === matchID);
+        // Find existing match
+        let existingIdx = s.findIndex(item => item && item.names === matchID);
         
-        if (existingMatchIndex !== -1) {
-            // Only update if current volley is higher than stored best
-            if (v > s[existingMatchIndex].hits) {
-                s[existingMatchIndex].hits = v;
+        if (existingIdx !== -1) {
+            // Only update if current score is better
+            if (v > s[existingIdx].hits) {
+                s[existingIdx].hits = v;
             }
         } else {
-            // New matchup
+            // New matchup pair
             s.push({ names: matchID, hits: v });
         }
 
-        // Sort by hits (high to low) and keep top 8
+        // Sort by hits (descending) and keep top 8
         s.sort((a, b) => b.hits - a.hits);
         s = s.slice(0, 8);
         
@@ -197,13 +197,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let s = [];
         try { s = JSON.parse(raw) || []; } catch(e) { s = []; }
         
-        // Filter out any null/undefined entries that might have been saved before
+        // --- UPDATED: REMOVE UNDEFINED ---
         const cleanList = s.filter(item => item && item.names && item.hits !== undefined);
         
         list.innerHTML = cleanList.length ? cleanList.map(x => `
             <div class="lb-entry">
-                <span style="color:#eee; font-size:10px;">${x.names}</span>
-                <span style="color:var(--neon); font-weight:bold;">${x.hits} HITS</span>
+                <span style="color:#eee; font-size:10px; font-weight: 300;">${x.names}</span>
+                <span style="color:var(--neon); font-weight:bold;">${x.hits}</span>
             </div>`).join('') : "No records yet.";
     }
     renderLB();
