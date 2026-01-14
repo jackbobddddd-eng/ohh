@@ -2,419 +2,243 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NEON PONG // SMOOTH SYNC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>NEON PONG // IPAD FIX</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --neon: #00f2ff; --pink: #ff007b; }
-        
-        /* PREVENT SCROLLING/ZOOMING ON IPAD */
-        * { touch-action: none; -webkit-tap-highlight-color: transparent; outline: none; box-sizing: border-box; }
-        
-        html, body { 
-            background: #000; 
-            margin: 0; padding: 0;
-            height: 100%; width: 100%; 
-            overflow: hidden; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            font-family: -apple-system, system-ui, sans-serif;
-            overscroll-behavior: none; /* Disables bounce scroll */
-        }
-
-        /* RESPONSIVE CONTAINER (16:10 Ratio) */
-        #game-wrapper {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #game-container { 
-            position: relative;
-            aspect-ratio: 16 / 10; 
-            width: 100%;
-            max-height: 100%;
-            max-width: 100%;
-            background: #000; 
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
-            border: 1px solid #333;
-            margin: auto;
-        }
-
+        * { touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; box-sizing: border-box; }
+        html, body { background: #000; margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
+        #game-container { position: relative; aspect-ratio: 16 / 10; width: 100%; max-height: 100%; max-width: 100%; background: #000; border: 2px solid #222; margin: auto; }
         canvas { display: block; width: 100%; height: 100%; }
-
-        /* UI STYLES */
-        .overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0, 0, 0, 0.92); 
-            display: flex; align-items: center; justify-content: center; 
-            z-index: 10; 
-        }
-
-        .menu-card { 
-            padding: 5%; 
-            border-radius: 20px; 
-            text-align: center; 
-            border: 1px solid rgba(255,255,255,0.15); 
-            width: 85%; 
-            max-width: 600px; 
-            background: #0a0a0a; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-
-        h1 { 
-            font-size: clamp(2rem, 5vw, 4rem); 
-            font-weight: 300; letter-spacing: 8px; margin: 0 0 20px 0; 
-            text-shadow: 0 0 20px var(--neon); color: #fff; 
-        }
-
-        .mode-select { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 20px 0; }
-        .mode-btn { 
-            background: #1a1a1a; color: #ccc; border: 1px solid #444; 
-            padding: 15px 0; border-radius: 10px; cursor: pointer; 
-            font-size: clamp(12px, 2vw, 16px); font-weight: bold;
-        }
-        .mode-btn.active { border-color: var(--neon); background: rgba(0, 242, 255, 0.15); color: white; }
-
-        input { 
-            background: #111; border: 1px solid #444; color: white; padding: 15px; 
-            width: 100%; border-radius: 10px; margin-bottom: 15px; 
-            font-size: 18px; text-align: center; 
-        }
-
-        #main-cta { 
-            background: white; border: none; color: black; padding: 15px; 
-            font-size: 20px; font-weight: 800; cursor: pointer; 
-            border-radius: 10px; width: 100%; text-transform: uppercase;
-        }
-
-        #leaderboard { 
-            margin: 20px 0; font-size: 16px; color: #aaa; text-align: left; 
-            background: #111; padding: 15px; border-radius: 10px; 
-            border: 1px solid #222; height: 20vh; overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
-        }
-        
-        .lb-entry { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 8px; }
+        .overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.95); display: flex; align-items: center; justify-content: center; z-index: 10; padding: 20px; }
+        .menu-card { padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #333; width: 100%; max-width: 500px; background: #050505; color: white; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+        h1 { font-size: clamp(1.5rem, 8vw, 2.5rem); letter-spacing: 5px; text-shadow: 0 0 15px var(--neon); margin: 0 0 20px 0; }
+        input { width: 100%; padding: 18px; margin-bottom: 12px; background: #111; border: 1px solid #444; color: white; border-radius: 12px; font-size: 1.1rem; text-align: center; }
+        button { width: 100%; padding: 18px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; font-size: 1.1rem; margin-top: 10px; transition: 0.2s; }
+        .primary-btn { background: white; color: black; }
+        .sec-btn { background: var(--pink); color: white; }
+        .tertiary-btn { background: #222; color: #aaa; border: 1px solid #444; }
+        #leaderboard { background: #111; height: 120px; overflow-y: auto; margin: 15px 0; padding: 15px; border-radius: 12px; text-align: left; font-size: 0.9rem; border: 1px solid #222; }
+        .lb-row { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 5px 0; }
         .hidden { display: none !important; }
-        .id-text { font-size: 14px; color: #555; margin-top: 15px; cursor: pointer; text-decoration: underline; }
+        .status-msg { font-size: 0.8rem; margin-top: 10px; color: var(--neon); }
     </style>
 </head>
 <body>
 
-    <div id="game-wrapper">
-        <div id="game-container">
-            <div id="overlay-name" class="overlay">
-                <div class="menu-card">
-                    <h1>IDENTIFY</h1>
-                    <input type="text" id="user-name" placeholder="ENTER NAME" maxlength="10">
-                    <button id="main-cta" onclick="saveName()">ENTER LOBBY</button>
-                </div>
+    <div id="game-container">
+        <div id="screen-name" class="overlay">
+            <div class="menu-card">
+                <h1>NEON PONG</h1>
+                <input type="text" id="in-name" placeholder="ENTER YOUR NAME" maxlength="10">
+                <button class="primary-btn" onclick="uiSaveName()">CONTINUE</button>
             </div>
-
-            <div id="overlay-start" class="overlay hidden">
-                <div class="menu-card">
-                    <h1>NEON PONG</h1>
-                    <div id="leaderboard">
-                        <div style="color:var(--neon); margin-bottom: 10px; font-weight:bold; text-align:center;">🏆 LONGEST RALLIES</div>
-                        <div id="lb-list">No records yet.</div>
-                    </div>
-                    <div class="mode-select">
-                        <button class="mode-btn" onclick="setAI('EASY')">EASY</button>
-                        <button class="mode-btn active" onclick="setAI('MEDIUM')">MEDIUM</button>
-                        <button class="mode-btn" onclick="setAI('HARD')">HARD</button>
-                    </div>
-                    <button id="main-cta" onclick="startAI()">PLAY vs CPU</button>
-                    <div style="margin: 20px 0; height: 1px; background: #222;"></div>
-                    <input type="text" id="join-id" placeholder="Paste Opponent ID">
-                    <button class="mode-btn" style="width: 100%; padding: 15px;" onclick="connectToPeer()">JOIN MULTIPLAYER</button>
-                    <div class="id-text" onclick="copyId()">MY ID: <span id="my-id" style="color:var(--pink);">Generating...</span></div>
-                </div>
-            </div>
-
-            <div id="overlay-win" class="overlay hidden">
-                <div class="menu-card">
-                    <div id="win-message" style="font-size: 3rem; font-weight: 800; color: var(--neon); margin-bottom: 10px;">WINNER</div>
-                    <div id="win-versus" style="font-size: 1.5rem; color: #888; margin-bottom: 20px;"></div>
-                    <div id="win-detail" style="font-size: 1.2rem; color: #ccc; background: #111; padding: 15px; border-radius: 8px; margin-bottom: 25px;"></div>
-                    <button id="main-cta" onclick="resetMatch()">PLAY AGAIN</button>
-                </div>
-            </div>
-
-            <canvas id="pong"></canvas>
         </div>
+
+        <div id="screen-menu" class="overlay hidden">
+            <div class="menu-card">
+                <h1>LOBBY</h1>
+                <div id="leaderboard"><div id="lb-content">No match history yet.</div></div>
+                <button class="primary-btn" onclick="startSinglePlayer()">PLAY VS CPU</button>
+                <div style="margin:20px 0; border-top:1px solid #333; position:relative;"><span style="position:absolute; top:-12px; left:45%; background:#050505; padding:0 10px; color:#444;">OR</span></div>
+                <input type="text" id="in-peer" placeholder="PASTE OPPONENT ID">
+                <button id="btn-join" class="sec-btn" onclick="joinMultiplayer()">JOIN MULTIPLAYER</button>
+                <p style="font-size:0.8rem; color:#666; margin-top:15px; cursor: pointer;" onclick="copyMyID()">MY ID: <span id="display-id" style="color:var(--neon); font-weight:bold; text-decoration:underline;">CONNECTING...</span></p>
+                <div id="status" class="status-msg"></div>
+            </div>
+        </div>
+
+        <div id="screen-win" class="overlay hidden">
+            <div class="menu-card">
+                <h2 id="win-txt" style="font-size:3rem; color:var(--neon); margin:0;">WINNER!</h2>
+                <p id="rally-txt" style="font-size:1.2rem; color:#888;">Best Rally: 0</p>
+                <button class="primary-btn" onclick="location.reload()">BACK TO MENU</button>
+            </div>
+        </div>
+
+        <canvas id="stage"></canvas>
     </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const canvas = document.getElementById("pong");
-    const ctx = canvas.getContext("2d");
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+    const GW = 2000, GH = 1250;
+    canvas.width = GW; canvas.height = GH;
+
+    let state = 'MENU', isHost = true, peerConn = null;
+    let name = "PLAYER", oppName = "CPU";
+    let score = [0, 0], rally = 0, bestRally = 0;
     
-    // Internal Resolution
-    const GAME_WIDTH = 2000;
-    const GAME_HEIGHT = 1250;
-    canvas.width = GAME_WIDTH; 
-    canvas.height = GAME_HEIGHT; 
+    const ball = { x: GW/2, y: GH/2, dx: 16, dy: 16, r: 20, speed: 1 };
+    const p1 = { y: 525, h: 220, w: 25, targetY: 525 };
+    const p2 = { y: 525, h: 220, w: 25, targetY: 525 };
 
-    // Constants
-    const PADDLE_H = 200; 
-    const PADDLE_W = 20;
-    const BALL_R = 20;
-    const WIN_SCORE = 7;
-
-    let gameState = 'LOBBY', mode = 'AI', isHost = true, conn = null;
-    let speedMult = 1, shake = 0;
-    let currentVolley = 0, maxMatchVolley = 0; 
-    let aiLevel = 'MEDIUM';
-    let particles = [], playerName = "PILOT", opponentName = "CPU";
-    const keys = {};
-
-    const p1 = { y: 525, score: 0, targetY: 525 };
-    const p2 = { y: 525, score: 0, targetY: 525 };
-    const ball = { x: 1000, y: 625, dx: 15, dy: 15 };
-
-    // --- INPUT HANDLING (FIXED FOR IPAD & SYNC) ---
-    const handleInput = (clientY) => {
+    // --- INPUT ---
+    function movePaddle(clientY) {
         const rect = canvas.getBoundingClientRect();
-        const scaleY = GAME_HEIGHT / rect.height; 
-        const relativeY = (clientY - rect.top) * scaleY;
-        const target = relativeY - (PADDLE_H / 2);
-        
-        if (isHost) {
-            p1.targetY = target;
-        } else {
-            // Client controls P2 directly (Local Prediction)
-            p2.targetY = target;
-        }
-    };
-
-    window.addEventListener("keydown", e => keys[e.code] = true);
-    window.addEventListener("keyup", e => keys[e.code] = false);
-    canvas.addEventListener("mousemove", e => handleInput(e.clientY));
-    
-    // LOCK IPAD GESTURES
-    const touchHandler = (e) => {
-        handleInput(e.touches[0].clientY);
-        e.preventDefault(); // Stop scrolling/zooming
-    };
-    canvas.addEventListener("touchstart", touchHandler, { passive: false });
-    canvas.addEventListener("touchmove", touchHandler, { passive: false });
-
-    // --- PARTICLE SYSTEM ---
-    class Particle {
-        constructor(x, y, color) {
-            this.x = x; this.y = y;
-            this.vx = (Math.random() - 0.5) * 35; this.vy = (Math.random() - 0.5) * 35;
-            this.alpha = 1; this.color = color; this.size = Math.random() * 10 + 5;
-        }
-        update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.03; }
-        draw() {
-            ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
-            ctx.fillRect(this.x, this.y, this.size, this.size); ctx.restore();
-        }
+        const scale = GH / rect.height;
+        const pos = (clientY - rect.top) * scale - (p1.h / 2);
+        if (isHost) p1.targetY = pos; else p2.targetY = pos;
     }
+    canvas.addEventListener('mousemove', e => movePaddle(e.clientY));
+    canvas.addEventListener('touchmove', e => { movePaddle(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
 
-    // --- UI FUNCTIONS ---
-    window.saveName = () => {
-        playerName = document.getElementById('user-name').value.trim() || "PILOT";
-        document.getElementById('overlay-name').classList.add('hidden');
-        document.getElementById('overlay-start').classList.remove('hidden');
-    };
-
-    window.setAI = (lvl) => {
-        aiLevel = lvl;
-        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-    };
-
-    window.startAI = () => { mode = 'AI'; isHost = true; opponentName = "CPU"; startGame(); };
-
-    function startGame() {
-        if(gameState === 'PLAYING') return;
-        gameState = 'PLAYING';
-        document.getElementById('overlay-start').classList.add('hidden');
-        document.getElementById('overlay-win').classList.add('hidden');
-        gameLoop(); 
-    }
-
-    window.resetMatch = () => {
-        p1.score = 0; p2.score = 0; currentVolley = 0; maxMatchVolley = 0;
-        resetBall();
-        if(isHost && mode === 'MULTIPLAYER' && conn) conn.send({ type: 'RESET_REBOOT' });
-        startGame();
-    };
-
-    function updateLB(v) {
-        if (v < 2) return; 
-        let s = JSON.parse(localStorage.getItem('pong_v15') || '[]');
-        s.push({ pair: `${playerName} & ${opponentName}`, v: v });
-        s.sort((a,b) => b.v - a.v);
-        localStorage.setItem('pong_v15', JSON.stringify(s.slice(0, 20)));
-        renderLB();
-    }
-    function renderLB() {
-        const list = document.getElementById('lb-list');
-        let s = JSON.parse(localStorage.getItem('pong_v15') || '[]');
-        list.innerHTML = s.length ? s.map((x, i) => `<div class="lb-entry"><span>${i+1}. ${x.pair}</span><span style="color:var(--neon)">${x.v} Hits</span></div>`).join('') : "No records yet.";
-    }
-    renderLB();
-
-    // --- MULTIPLAYER LOGIC ---
+    // --- PEERJS CORE ---
     const peer = new Peer();
-    peer.on('open', id => document.getElementById('my-id').innerText = id);
-    peer.on('connection', c => { conn = c; isHost = true; mode = 'MULTIPLAYER'; setupPeer(); });
+    peer.on('open', id => document.getElementById('display-id').innerText = id);
+    
+    peer.on('connection', c => {
+        peerConn = c; 
+        isHost = true;
+        document.getElementById('status').innerText = "Connecting to player...";
+        setupSocket();
+    });
 
-    window.connectToPeer = () => {
-        const id = document.getElementById('join-id').value;
-        if(!id) return;
-        conn = peer.connect(id, { reliable: true }); isHost = false; mode = 'MULTIPLAYER';
-        setupPeer();
-    };
+    function joinMultiplayer() {
+        const id = document.getElementById('in-peer').value.trim();
+        if(!id) { alert("Please paste an ID first!"); return; }
+        
+        document.getElementById('btn-join').innerText = "JOINING...";
+        peerConn = peer.connect(id);
+        isHost = false;
+        setupSocket();
+    }
 
-    function setupPeer() {
-        conn.on('open', () => { if(!isHost) conn.send({ type: 'NAME', name: playerName }); });
-        conn.on('data', data => {
-            if (data.type === 'NAME') {
-                opponentName = data.name;
-                if(isHost) { conn.send({ type: 'START', name: playerName }); startGame(); }
+    function setupSocket() {
+        peerConn.on('open', () => {
+            peerConn.send({ type: 'JOIN', name: name });
+            document.getElementById('status').innerText = "Handshake successful!";
+        });
+
+        peerConn.on('data', data => {
+            if (data.type === 'JOIN') { 
+                oppName = data.name; 
+                peerConn.send({type:'START_GAME', name:name}); 
+                startGame(); 
             }
-            if (data.type === 'START') { opponentName = data.name; startGame(); }
-            if (data.type === 'RESET_REBOOT') { p1.score = 0; p2.score = 0; maxMatchVolley = 0; startGame(); }
-            if (data.type === 'WIN') endMatch(data.winner);
+            if (data.type === 'START_GAME') { 
+                oppName = data.name; 
+                startGame(); 
+            }
             
-            // --- SYNC LOGIC ---
-            if (isHost) { 
-                // Host receives P2 Target from Client
-                if (data.p2Target !== undefined) p2.targetY = data.p2Target; 
+            if (isHost) {
+                if(data.p2Y !== undefined) p2.targetY = data.p2Y;
             } else {
-                // Client receives Game State
-                p1.y = data.p1Y; 
-                ball.x = data.ballX; 
-                ball.y = data.ballY;
-                p1.score = data.s1; 
-                p2.score = data.s2; 
-                speedMult = data.speed; 
-                currentVolley = data.vol; 
-                maxMatchVolley = data.maxVol;
-                
-                // IMPORTANT: Client ignores data.p2Y to prevent glitching.
-                // We rely on local p2.y calculation for smoothness.
-                
-                if(data.hit) burst(data.hit.x, data.hit.y, data.hit.c);
+                p1.y = data.p1Y;
+                ball.x = data.bx; ball.y = data.by;
+                score = data.score; rally = data.rally;
             }
+        });
+
+        peerConn.on('error', err => {
+            alert("Connection error!");
+            location.reload();
         });
     }
 
-    function burst(x, y, c) { for(let i=0; i<15; i++) particles.push(new Particle(x, y, c)); }
-
-    // --- MAIN GAME LOOP ---
-    function update() {
-        // Keyboard Inputs
-        if (keys['KeyW'] || keys['ArrowUp']) { if(isHost) p1.targetY -= 40; else p2.targetY -= 40; }
-        if (keys['KeyS'] || keys['ArrowDown']) { if(isHost) p1.targetY += 40; else p2.targetY += 40; }
-        
-        // PADDLE SMOOTHING (Run on both devices locally)
-        p1.y += (p1.targetY - p1.y) * 0.25;
-        
-        if (mode === 'AI') {
-            let s = { 'EASY': 0.035, 'MEDIUM': 0.1, 'HARD': 0.3 }[aiLevel];
-            p2.y += (ball.y - 100 - p2.y) * s;
-        } else {
-            // Both Host and Client smooth P2 locally
-            p2.y += (p2.targetY - p2.y) * 0.25; 
-        }
-
-        // BOUNDARY CHECKS
-        const maxY = GAME_HEIGHT - PADDLE_H;
-        if(p1.y < 0) p1.y = 0; if(p1.y > maxY) p1.y = maxY;
-        if(p2.y < 0) p2.y = 0; if(p2.y > maxY) p2.y = maxY;
-
-        // PHYSICS (Host Only)
-        if (isHost || mode === 'AI') {
-            speedMult += 0.0015;
-            ball.x += ball.dx * speedMult; ball.y += ball.dy * speedMult;
-            
-            // Wall Bounces
-            if (ball.y <= 0 + BALL_R || ball.y >= GAME_HEIGHT - BALL_R) { 
-                ball.dy *= -1; burst(ball.x, ball.y, 'white'); shake = 4; 
-            }
-            
-            // Collision P1
-            if (ball.x - BALL_R <= 60 && ball.x + BALL_R >= 40 && ball.y + BALL_R >= p1.y && ball.y - BALL_R <= p1.y + PADDLE_H) {
-                if (ball.dx < 0) { ball.dx = Math.abs(ball.dx); currentVolley++; if(currentVolley > maxMatchVolley) maxMatchVolley = currentVolley; burst(60, ball.y, '#00f2ff'); }
-            }
-            // Collision P2
-            if (ball.x + BALL_R >= 1940 && ball.x - BALL_R <= 1960 && ball.y + BALL_R >= p2.y && ball.y - BALL_R <= p2.y + PADDLE_H) {
-                if (ball.dx > 0) { ball.dx = -Math.abs(ball.dx); currentVolley++; if(currentVolley > maxMatchVolley) maxMatchVolley = currentVolley; burst(1940, ball.y, '#ff007b'); }
-            }
-            
-            // Scoring
-            if (ball.x < -50) { p2.score++; resetBall(); }
-            if (ball.x > GAME_WIDTH + 50) { p1.score++; resetBall(); }
-            
-            if (p1.score >= WIN_SCORE || p2.score >= WIN_SCORE) { 
-                let w = p1.score >= WIN_SCORE ? playerName : opponentName;
-                updateLB(maxMatchVolley); 
-                if(conn) conn.send({ type: 'WIN', winner: w }); 
-                endMatch(w); 
-            }
-            
-            if (conn) conn.send({ 
-                p1Y: p1.y, 
-                ballX: ball.x, ballY: ball.y, 
-                s1: p1.score, s2: p2.score, 
-                speed: speedMult, vol: currentVolley, maxVol: maxMatchVolley 
-            });
-        } else if (conn) { 
-            // Client ONLY sends target
-            conn.send({ p2Target: p2.targetY }); 
-        }
-
-        particles.forEach((p, i) => { p.update(); if(p.alpha <= 0) particles.splice(i, 1); });
+    // --- GAME ENGINE ---
+    function uiSaveName() {
+        name = document.getElementById('in-name').value || "PLAYER";
+        document.getElementById('screen-name').classList.add('hidden');
+        document.getElementById('screen-menu').classList.remove('hidden');
+        loadLB();
     }
 
-    function resetBall() { ball.x = GAME_WIDTH/2; ball.y = GAME_HEIGHT/2; ball.dx *= -1; speedMult = 1; currentVolley = 0; }
+    function copyMyID() {
+        const id = document.getElementById('display-id').innerText;
+        navigator.clipboard.writeText(id);
+        document.getElementById('status').innerText = "ID Copied to clipboard!";
+    }
 
-    function endMatch(w) {
-        gameState = 'END';
-        document.getElementById('overlay-win').classList.remove('hidden');
-        document.getElementById('win-message').innerText = w.toUpperCase() + " WINS";
-        document.getElementById('win-versus').innerText = `${playerName.toUpperCase()} VS ${opponentName.toUpperCase()}`;
-        document.getElementById('win-detail').innerText = `Best Rally: ${maxMatchVolley} Consecutive Hits`;
+    function startSinglePlayer() { isHost = true; oppName = "CPU"; startGame(); }
+    
+    function startGame() { 
+        state = 'PLAY'; 
+        document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+        requestAnimationFrame(loop); 
+    }
+
+    function resetBall() {
+        ball.x = GW/2; ball.y = GH/2;
+        ball.dx *= -1; ball.speed = 1;
+        if (rally > bestRally) bestRally = rally;
+        rally = 0;
+    }
+
+    function update() {
+        p1.y += (p1.targetY - p1.y) * 0.2;
+        p2.y += (p2.targetY - p2.y) * 0.2;
+        p1.y = Math.max(0, Math.min(GH - p1.h, p1.y));
+        p2.y = Math.max(0, Math.min(GH - p2.h, p2.y));
+
+        if (isHost) {
+            if (oppName === "CPU") p2.targetY += (ball.y - (p2.y + p2.h/2)) * 0.1;
+            ball.x += ball.dx * ball.speed;
+            ball.y += ball.dy * ball.speed;
+            ball.speed += 0.0006;
+
+            if (ball.y < 0 || ball.y > GH) ball.dy *= -1;
+            if (ball.dx < 0 && ball.x < 80 && ball.y > p1.y && ball.y < p1.y + p1.h) { ball.dx *= -1; ball.x = 81; rally++; }
+            if (ball.dx > 0 && ball.x > GW - 80 && ball.y > p2.y && ball.y < p2.y + p2.h) { ball.dx *= -1; ball.x = GW - 81; rally++; }
+
+            if (ball.x < 0) { score[1]++; resetBall(); }
+            if (ball.x > GW) { score[0]++; resetBall(); }
+            if (score[0] >= 7 || score[1] >= 7) endGame();
+            if (peerConn) peerConn.send({ p1Y: p1.y, bx: ball.x, by: ball.y, score, rally });
+        } else {
+            if (peerConn) peerConn.send({ p2Y: p2.targetY });
+        }
     }
 
     function draw() {
-        ctx.fillStyle = "black"; ctx.fillRect(0,0, canvas.width, canvas.height);
-        ctx.save(); if (shake > 1) { ctx.translate(Math.random()*shake, Math.random()*shake); shake *= 0.9; }
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,GW,GH);
+        ctx.strokeStyle = '#222'; ctx.setLineDash([20, 20]);
+        ctx.beginPath(); ctx.moveTo(GW/2, 0); ctx.lineTo(GW/2, GH); ctx.stroke();
         
-        ctx.font = "bold 50px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.textAlign = "center";
-        ctx.fillText(`${playerName} VS ${opponentName}`, GAME_WIDTH/2, 80);
-        ctx.font = "30px sans-serif"; ctx.fillText(`BEST RALLY: ${maxMatchVolley}`, GAME_WIDTH/2, 140);
-        
-        ctx.shadowBlur = 25; ctx.fillStyle = "white";
-        ctx.shadowColor = "#00f2ff"; ctx.fillRect(40, p1.y, PADDLE_W, PADDLE_H);
-        ctx.shadowColor = "#ff007b"; ctx.fillRect(1940, p2.y, PADDLE_W, PADDLE_H);
-        ctx.shadowColor = "white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI*2); ctx.fill();
-        particles.forEach(p => p.draw());
-        
-        ctx.font = "200px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.shadowBlur = 0;
-        ctx.fillText(p1.score, 600, 450); ctx.fillText(p2.score, 1400, 450);
-        ctx.restore();
+        ctx.fillStyle = 'white'; ctx.font = '80px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(score[0], GW/2 - 200, 150);
+        ctx.fillText(score[1], GW/2 + 200, 150);
+        ctx.font = '30px sans-serif'; ctx.fillText(`RALLY: ${rally}`, GW/2, 50);
+
+        ctx.fillStyle = '#00f2ff'; ctx.shadowBlur = 20; ctx.shadowColor = '#00f2ff';
+        ctx.fillRect(40, p1.y, p1.w, p1.h);
+        ctx.fillStyle = '#ff007b'; ctx.shadowColor = '#ff007b';
+        ctx.fillRect(GW - 40 - p2.w, p2.y, p2.w, p2.h);
+        ctx.fillStyle = 'white'; ctx.shadowColor = 'white';
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
     }
 
-    function gameLoop() {
-        if(gameState !== 'PLAYING') return;
-        // Run update loop immediately if game is active
-        update(); draw(); 
-        requestAnimationFrame(gameLoop);
+    function loop() {
+        if (state !== 'PLAY') return;
+        update(); draw();
+        requestAnimationFrame(loop);
     }
 
-    window.copyId = () => { navigator.clipboard.writeText(document.getElementById('my-id').innerText); alert("ID Copied"); };
-});
+    function endGame() {
+        state = 'END';
+        const win = score[0] >= 7 ? name : oppName;
+        document.getElementById('screen-win').classList.remove('hidden');
+        document.getElementById('win-txt').innerText = win.toUpperCase() + " WINS!";
+        document.getElementById('rally-txt').innerText = "Match Best Rally: " + bestRally;
+        saveLB(win, bestRally);
+    }
+
+    function saveLB(w, r) {
+        let history = JSON.parse(localStorage.getItem('pong_scores') || '[]');
+        history.push({ name: w, rally: r });
+        history.sort((a,b) => b.rally - a.rally);
+        localStorage.setItem('pong_scores', JSON.stringify(history.slice(0, 5)));
+    }
+
+    function loadLB() {
+        const history = JSON.parse(localStorage.getItem('pong_scores') || '[]');
+        const div = document.getElementById('lb-content');
+        if (history.length > 0) {
+            div.innerHTML = '<b>TOP RALLIES:</b>' + history.map(h => `<div class="lb-row"><span>${h.name}</span><span>${h.rally} hits</span></div>`).join('');
+        }
+    }
 </script>
 </body>
 </html>
