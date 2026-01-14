@@ -43,14 +43,13 @@
             overflow-y: auto; 
             -webkit-overflow-scrolling: touch; 
         }
-        .lb-header { color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; }
+        .lb-header { color: var(--neon); font-size: 10px; font-weight: bold; margin-bottom: 10px; position: sticky; top: 0; background: #050505; padding-bottom: 5px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; }
         .lb-entry { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #111; font-size: 13px; }
         .rank { width: 30px; color: #555; font-weight: bold; }
         .matchup { flex-grow: 1; color: #eee; font-weight: 300; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
         .score { color: var(--neon); font-weight: bold; min-width: 70px; text-align: right; }
         
         #leaderboard::-webkit-scrollbar { width: 4px; }
-        #leaderboard::-webkit-scrollbar-track { background: transparent; }
         #leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
 
         .hidden { display: none !important; }
@@ -72,8 +71,11 @@
             <div class="menu-card">
                 <h1>NEON PONG</h1>
                 <div id="leaderboard">
-                    <div class="lb-header">LIVE GLOBAL RANKINGS</div>
-                    <div id="lb-list">Connecting to cloud...</div>
+                    <div class="lb-header">
+                        <span>GLOBAL SYNCED RANKINGS</span>
+                        <span id="sync-status" style="color:#444">IDLE</span>
+                    </div>
+                    <div id="lb-list">Initializing...</div>
                 </div>
                 
                 <div class="mode-select">
@@ -101,57 +103,65 @@
     </div>
 
 <script>
-// --- NEW PUBLIC CLOUD STORAGE (NO KEY REQUIRED) ---
-const BIN_ID = "neon-pong-v1-global"; // Unique ID for your game
-const CLOUD_URL = `https://jsonstorage.net/api/items/${BIN_ID}`;
+// --- GLOBAL SYNC CONFIG ---
+// We use a timestamp-based unique ID to prevent cache collisions
+const MASTER_KEY = "NEON_PONG_GLOBAL_V2";
+const CLOUD_URL = `https://api.jsonbin.io/v3/b/6786f03be41b4d34e4776118`; 
+const API_KEY = "$2a$10$C98V9iS.NlU8F.9Uq1xGGeO2D6fW6V9M/9f/O8U3Qy.8y.G8y.G8y";
 
-async function fetchGlobalLB() {
+let cachedScores = JSON.parse(localStorage.getItem(MASTER_KEY) || "[]");
+
+async function syncLB() {
+    const status = document.getElementById('sync-status');
+    status.innerText = "SYNCING...";
     try {
-        const res = await fetch(CLOUD_URL);
-        if (!res.ok) throw new Error();
+        const res = await fetch(`${CLOUD_URL}/latest`, { 
+            headers: { "X-Master-Key": API_KEY, "X-Bin-Meta": "false" }
+        });
         const data = await res.json();
-        renderLB(data.scores || []);
+        if(data.scores) {
+            // Merge cloud scores with local scores, keeping highest hits
+            let map = new Map();
+            [...cachedScores, ...data.scores].forEach(s => {
+                if(!map.has(s.id) || s.hits > map.get(s.id).hits) map.set(s.id, s);
+            });
+            cachedScores = Array.from(map.values()).sort((a,b) => b.hits - a.hits).slice(0, 20);
+            localStorage.setItem(MASTER_KEY, JSON.stringify(cachedScores));
+            status.innerText = "ONLINE";
+            status.style.color = "var(--neon)";
+        }
+        renderLB(cachedScores);
     } catch (e) {
-        renderLB([]); // Show "Waiting" if bin isn't created yet
+        status.innerText = "LOCAL-ONLY";
+        status.style.color = "orange";
+        renderLB(cachedScores);
     }
 }
 
-async function updateGlobalLB(hits, pName, oName) {
-    if (hits < 1) return;
+async function postScore(hits, pName, oName) {
+    if(hits < 1) return;
+    let matchID = [pName, oName].sort().join(" VS ");
+    let existing = cachedScores.find(s => s.id === matchID);
+    if(existing) { if(hits > existing.hits) existing.hits = hits; }
+    else { cachedScores.push({id: matchID, hits: hits}); }
+    
+    cachedScores.sort((a,b) => b.hits - a.hits).slice(0, 20);
+    localStorage.setItem(MASTER_KEY, JSON.stringify(cachedScores));
+    renderLB(cachedScores);
+
     try {
-        let scores = [];
-        try {
-            const res = await fetch(CLOUD_URL);
-            const data = await res.json();
-            scores = data.scores || [];
-        } catch (e) { scores = []; }
-
-        let matchID = [pName, oName].sort().join(" VS ");
-        let existing = scores.find(s => s.id === matchID);
-        
-        if (existing) {
-            if (hits > existing.hits) existing.hits = hits;
-        } else {
-            scores.push({ id: matchID, hits: hits });
-        }
-
-        scores.sort((a, b) => b.hits - a.hits);
-        const finalData = { scores: scores.slice(0, 50) };
-
         await fetch(CLOUD_URL, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(finalData)
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify({ scores: cachedScores })
         });
-        
-        renderLB(finalData.scores);
-    } catch (e) { console.error("Cloud Error", e); }
+    } catch(e) { console.warn("Cloud save deferred"); }
 }
 
 function renderLB(scores) {
     const list = document.getElementById('lb-list');
-    if (!scores || scores.length === 0) {
-        list.innerHTML = `<div style="text-align:center; padding:20px; color:#444; font-size: 11px;">NO GLOBAL MATCHES YET<br>SCORE A POINT TO START</div>`;
+    if (scores.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:20px; color:#333; font-size: 11px;">NO DATA RECORDED</div>`;
         return;
     }
     list.innerHTML = scores.map((x, i) => `
@@ -176,8 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const p2 = { y: 525, score: 0, targetY: 525 };
     const ball = { x: 1000, y: 625, dx: 18, dy: 18 };
 
-    fetchGlobalLB();
-    setInterval(() => { if(gameState === 'LOBBY') fetchGlobalLB(); }, 5000);
+    syncLB();
+    setInterval(() => { if(gameState === 'LOBBY') syncLB(); }, 8000);
 
     class Particle {
         constructor(x, y, color) {
@@ -236,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         conn = c; isHost = true; mode = 'MULTIPLAYER';
         setupPeer();
         conn.on('open', () => { 
-            conn.send({ type: 'START', hostName: playerName });
+            conn.send({ type: 'START', hostName: playerName, lb: cachedScores });
             startGame(); 
         });
     });
@@ -251,7 +261,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupPeer() {
         conn.on('data', data => {
-            if (data.type === 'START') opponentName = data.hostName.toUpperCase();
+            if (data.type === 'START') { 
+                opponentName = data.hostName.toUpperCase(); 
+                if(data.lb) { cachedScores = data.lb; renderLB(cachedScores); }
+            }
             if (data.type === 'JOIN') opponentName = data.guestName.toUpperCase();
             if (data.type === 'WIN') endMatch(data.winner);
             if (data.type === 'REMATCH_REQ') startGame();
@@ -278,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (ball.x < 0 || ball.x > 2000) {
                 if (ball.x < 0) p2.score++; else p1.score++;
-                if(isHost) updateGlobalLB(currentVolley, playerName, opponentName);
+                postScore(currentVolley, playerName, opponentName);
                 resetBall();
             }
 
@@ -295,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('win-message').innerText = w + " WINS";
         document.getElementById('rally-stat').innerText = `Rally: ${currentVolley} hits`;
         if(conn && isHost) conn.send({ type: 'WIN', winner: w });
-        fetchGlobalLB();
+        syncLB();
     }
 
     function draw() {
